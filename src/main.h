@@ -23,6 +23,8 @@ void pingToF();
 void centering();
 void sensorChangeRotation(int sensorIndex, unsigned long delayTime=100);
 void parallelSensorAdjustment(int sensorIndex);
+void changeFrontDirection(int newDirection);
+void transmitSensorData();
 
 // Starting from front left, going clockwise
 // Ultrasonic Sensor 1 pins
@@ -122,6 +124,11 @@ volatile long motCount = 0;
 long driveTimeout = 1000; // milliseconds
 long lastDriveCommand = 0;
 
-bool MOVELEFTWHENPOSSIBLE = true;
+bool MOVELEFTWHENPOSSIBLE = false;
+bool MOVERIGHTWHENPOSSIBLE = false;
 bool OMNIWHEELDRIVE = true;
 int frontDirection = 0; // 0: front, 1: right, 2: back, 3: left
+
+// For control over serial
+long lastCommandTime = 0;
+long commandTimeout = 5000; // milliseconds
