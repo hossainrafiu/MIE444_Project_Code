@@ -109,6 +109,7 @@ int shift=0;
 
 VL53L0X sensors[4];
 int tofPins[4] = {2, 3, 4, 5}; // XSHUT pins for the 4 ToF sensors
+long lastToFDistances[4];
 long tofDistances[4]; // distances from ToF sensors
 long tofDistancesReal[4]; // Used for omniwheel drive where the 'front' is rotated
 // Sensors orientation:

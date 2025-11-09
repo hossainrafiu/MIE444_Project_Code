@@ -1,12 +1,13 @@
 #include <main.h>
 
 bool verboseConsole = false;
-bool verboseSensors = true;
-bool followLastCommand = true;
+bool verboseSensors = false;
+bool followLastCommand = false;
+bool remoteControl = true;
 
 void setup() {
   Serial1.begin(9600);
-  Serial1.println("Starting....");
+  if (!remoteControl) Serial1.println("Starting....");
   Serial.begin(9600);
   Serial.println("Starting....");
   pinMode(In1A, OUTPUT);
@@ -31,7 +32,7 @@ void setup() {
       digitalWrite(tofPins[i], LOW); // Disable all sensors
     }
     for (int i=0; i<4; i++){
-      Serial1.println("Initializing sensor " + String(i));
+      if (!remoteControl) Serial1.println("Initializing sensor " + String(i));
       pinMode(tofPins[i], INPUT);
       delay(100); // Wait for sensor to boot
       sensors[i].setTimeout(500);
@@ -58,25 +59,33 @@ void loop(){
   controlFromSerial();
 }
 
+String command = "";
 void controlFromSerial()
 {
-  // Check for serial commands
-  if (Serial.available())
+  if (Serial1.available())
   {
-    val = Serial.read();
+    command = Serial1.readStringUntil(']');
+    if (command.charAt(0) != '[')
+    {
+      Serial1.println("Invalid command format.");
+      return;
+    }
+    val = command.charAt(1);
     lastCommandTime = millis();
   }
-  // Else check for command timeout
   else if (millis() - lastCommandTime > commandTimeout || !followLastCommand)
   {
-      val = 0; // reset command if timeout or not following last command
+      val = 0; 
   }
 
   // Execute commands based on received value
   if (val == 'f')
   {
     obstacleAvoidance();
-    pingSensors();
+  }
+  else if (val == 'p')
+  {
+    pingToF();
     transmitSensorData();
   }
   else if (val == 'h')
@@ -89,7 +98,11 @@ void controlFromSerial()
   }
   else if (val == 'r')
   {
-    val = Serial.read();
+    val = command.charAt(2); // get direction value
+    if (val < '0' || val > '3'){
+      Serial1.println("Invalid direction for 'r' command.");
+      return;
+    }
     changeFrontDirection(int(val));
   }
   else if (val == 'l'){
@@ -115,9 +128,12 @@ void controlFromSerial()
     MOVERIGHTWHENPOSSIBLE = true;
     MOVELEFTWHENPOSSIBLE = false;
   }
-  // Ready for next command
-  delay(100);
-  Serial1.println("+");
+  delay(10);
+  if (val != 0 && val != 'p')
+  {
+    delay(100);
+    Serial1.println("+");
+  }
 }
 
 void manualControl() 
@@ -218,7 +234,7 @@ void obstacleAvoidance()
     if (MOVELEFTWHENPOSSIBLE){
       // try to move left if possible
       if (tofDistances[3] > 150){
-        Serial1.println("Path clear on the left, carefully moving straight and then rotating.");
+        if (verboseConsole) Serial1.println("Path clear on the left, carefully moving straight and then rotating.");
         halt();
         forward();
         delay(500);
@@ -236,7 +252,7 @@ void obstacleAvoidance()
     if (MOVERIGHTWHENPOSSIBLE){
       // try to move right if possible
       if (tofDistances[1] > 150){
-        Serial1.println("Path clear on the right, carefully moving straight and then rotating.");
+        if (verboseConsole) Serial1.println("Path clear on the right, carefully moving straight and then rotating.");
         halt();
         forward();
         delay(500);
@@ -252,6 +268,23 @@ void obstacleAvoidance()
       }
     }
 
+    if (abs(lastToFDistances[1] - tofDistances[1]) > 100){
+      if (verboseConsole) Serial1.println("Significant change in right sensor distance.");
+      // moving forward to avoid wall collision if wanting to move right
+      halt();
+      forward();
+      delay(500);
+      halt();
+    }
+    else if (abs(lastToFDistances[3] - tofDistances[3]) > 100){
+      if (verboseConsole) Serial1.println("Significant change in left sensor distance.");
+      // moving forward to avoid wall collision if wanting to move left
+      halt();
+      forward();
+      delay(500);
+      halt();
+    }
+
     // Deal with bad readings
     if (tofDistances[0] == 0)
     {
@@ -261,7 +294,7 @@ void obstacleAvoidance()
     }
 
     // Check for obstacles in front of the rover
-    if (tofDistances[0] < 80)
+    if (tofDistances[0] < 60)
     {
         // Obstacle detected in front, stop and back up
         if (verboseConsole) Serial1.println("Obstacle detected in front, backing up and rotating.");
@@ -272,7 +305,10 @@ void obstacleAvoidance()
         halt();
         delay(500);
         // Rotate to avoid obstacle
-        if (OMNIWHEELDRIVE){
+        if (remoteControl){
+          if (verboseConsole) Serial1.println("Remote control active, not changing front direction.");
+        }
+        else if (OMNIWHEELDRIVE){
           if (tofDistances[1] < 150){
             changeFrontDirection(3);
           }
@@ -297,27 +333,6 @@ void obstacleAvoidance()
             halt();
         }
     }
-
-    // Disabled Wall Centering code below
-    // If too close on the sides, adjust path
-    // else if (tofDistances[1] < 90 && tofDistances[3] < 90){
-    //   if (tofDistances[1]+20 < tofDistances[3]){
-    //     Serial1.println("Adjusting path: moving left and rotating.");
-    //     halt();
-    //     left();
-    //     delay(50);
-    //     halt();
-    //     // sensorChangeRotation(2, 50);
-    //   }
-    //   else if (tofDistances[1] > tofDistances[3] +20) {
-    //     Serial1.println("Adjusting path: moving right and rotating.");
-    //     halt();
-    //     right();
-    //     delay(50);
-    //     halt();
-    //     // sensorChangeRotation(6, 50);
-    //   }
-    // }
     
     // Avoiding right wall collisions
     else if (tofDistances[1] < 60 && tofDistances[1] != 0)
@@ -330,7 +345,6 @@ void obstacleAvoidance()
         delay(300);
         halt();
         parallelSensorAdjustment(1);
-        // sensorChangeRotation(2, 50);
     }
     // Avoiding left wall collisions
     else if (tofDistances[3] < 60 && tofDistances[3] != 0)
@@ -342,7 +356,6 @@ void obstacleAvoidance()
         delay(300);
         halt();
         parallelSensorAdjustment(3);
-        // sensorChangeRotation(6, 50);
     }
     // Hugging Left Wall
     else if (tofDistances[3]>90 && tofDistances[3] < 150)
@@ -747,12 +760,13 @@ void pingToF()
       Serial1.print(" mm, ");
     }
   }
-  Serial1.println();
+  if (!remoteControl) Serial1.println();
 
   for (int i = 0 ; i < 4 ; i++){
+    lastToFDistances[i] = tofDistances[i];
     tofDistances[i] = tofDistancesReal[(i + frontDirection) % 4];
   }
-  if (OMNIWHEELDRIVE){
+  if (OMNIWHEELDRIVE && verboseSensors){
     Serial1.print("Front: ");
     Serial1.print(frontDirection);
     Serial1.print("Front Distance: ");
@@ -761,7 +775,7 @@ void pingToF()
 }
 
 void centering(){
-  Serial1.println("Centering rover...");
+  if (verboseConsole) Serial1.println("Centering rover...");
   int lastMeasure1 = 8000;
   int lastMeasure2 = 8000;
   int lastMeasure3 = 8000;
@@ -775,7 +789,7 @@ void centering(){
     lastMeasure3 = lastMeasure2;
     lastMeasure2 = lastMeasure1;
     lastMeasure1 = tofDistances[1];
-    Serial1.println("M1: " + String(lastMeasure1) + " M2: " + String(lastMeasure2) + " M3: " + String(lastMeasure3));
+    if (verboseConsole) Serial1.println("M1: " + String(lastMeasure1) + " M2: " + String(lastMeasure2) + " M3: " + String(lastMeasure3));
     if (tofDistances[0] > 300 and tofDistances[1] < 150){
       if (lastMeasure1 > lastMeasure2 && lastMeasure3 > lastMeasure2){
         halt();
@@ -788,7 +802,7 @@ void centering(){
   }
   // If centering fails, rotate until two corners are detected (so we are facing a corner)
   // rotate 45 degrees so we are facing a corridor
-  Serial1.println("Centering with corners...");
+  if (verboseConsole) Serial1.println("Centering with corners...");
   while(true){
     halt();
     rotateCW();
@@ -813,11 +827,11 @@ void sensorChangeRotation(int sensorIndex, unsigned long delayTime=100){
   if (lastSensorDistances[sensorIndex] < 150 && sensorDistances[sensorIndex] < 150){
 
     int change = sensorDistances[sensorIndex] - lastSensorDistances[sensorIndex];
-    Serial1.println("Sensor " + String(sensorIndex) + " change: " + String(change));
+    if (verboseSensors) Serial1.println("Sensor " + String(sensorIndex) + " change: " + String(change));
 
     if ((change < 0 && sensorIndex==2) || (change > 0 && sensorIndex==6)){
       // getting closer to wall, rotate CCW
-      Serial1.println("Rotating CCW to avoid wall.");
+      if (verboseSensors) Serial1.println("Rotating CCW to avoid wall.");
       halt();
       rotateCCW();
       delay(delayTime);
@@ -826,7 +840,7 @@ void sensorChangeRotation(int sensorIndex, unsigned long delayTime=100){
 
     else if ((change > 0 && sensorIndex==2) || (change < 0 && sensorIndex==6)){
       // getting away from wall, rotate CW
-      Serial1.println("Rotating CW to avoid wall.");
+      if (verboseSensors) Serial1.println("Rotating CW to avoid wall.");
       halt();
       rotateCW();
       delay(delayTime);
@@ -861,7 +875,7 @@ void parallelSensorAdjustment(int direction){
     sensor2 = 0;
   }
   int diff = sensorDistances[sensor1] - sensorDistances[sensor2];
-  Serial1.println("Parallel adjustment diff: " + String(diff));
+  if (verboseConsole) Serial1.println("Parallel adjustment diff: " + String(diff));
   if (abs(diff) > 0 && abs(diff) < 100){
     unsigned long delayTime = abs(diff) * 5; // adjust delay time based on difference
     if (diff > 0){
@@ -885,25 +899,26 @@ void parallelSensorAdjustment(int direction){
   delay(100);
   if (abs(sensorDistances[sensor1] - sensorDistances[sensor2]) > 20 &&
       abs(sensorDistances[sensor1] - sensorDistances[sensor2]) < 100){
-    Serial1.println("Further parallel adjustment needed.");
+    if (verboseConsole) Serial1.println("Further parallel adjustment needed.");
     parallelSensorAdjustment(direction); // recursive call if still not parallel
   }
 }
 
 void changeFrontDirection(int newFront){
   frontDirection = newFront % 4;
-  Serial1.println("Front direction changed to: " + String(frontDirection));
+  if (verboseConsole) Serial1.println("Front direction changed to: " + String(frontDirection));
   pingSensors();
   delay(100);
 }
 
 void transmitSensorData(){
   // Transmit sensor distances over Serial1 in a comma-separated format
-  String buffer;
-  for (int i = 0; i < 8; i++){
-    buffer += String(sensorDistances[i]);
+  String buffer = "[]";
+  for (int i = 0; i < 4; i++){
+    buffer += String(tofDistancesReal[i]);
     buffer += ", ";
   }
   buffer += String(frontDirection);
+  buffer += "]";
   Serial1.println(buffer);
 }
