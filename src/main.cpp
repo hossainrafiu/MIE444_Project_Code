@@ -108,21 +108,21 @@ void controlFromSerial()
       halt();
     }
     // BACKWARDS
-    else if (val == 'b')
+    else if (val == 's')
     {
       backwards();
       delay(commandDuration);
       halt();
     }
     // LEFT
-    else if (val == 'l')
+    else if (val == 'a')
     {
       left();
       delay(commandDuration);
       halt();
     }
     // RIGHT
-    else if (val == 'r')
+    else if (val == 'd')
     {
       right();
       delay(commandDuration);
@@ -150,7 +150,7 @@ void controlFromSerial()
     {
       centering();
     }
-    else if (val == 'a')
+    else if (val == 'j')
     {
       int direction = command.charAt(start + 2) - '0';
       if (direction < 0 || direction > 3){
@@ -170,13 +170,13 @@ void controlFromSerial()
       changeFrontDirection(direction);
     }
     // CW ROTATION
-    else if (val == 'k'){
+    else if (val == 'e'){
       rotateCW();
       delay(commandDuration);
       halt();
     }
     // CCW ROTATION
-    else if (val == 'j'){
+    else if (val == 'q'){
       rotateCCW();
       delay(commandDuration);
       halt();
