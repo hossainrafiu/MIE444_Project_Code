@@ -6,7 +6,7 @@ bool followLastCommand = false;
 bool remoteControl = true;
 
 void setup() {
-  Serial1.begin(9600);
+  Serial1.begin(19200);
   if (!remoteControl) Serial1.println("Starting....");
   Serial.begin(9600);
   Serial.println("Starting....");
@@ -94,7 +94,7 @@ void controlFromSerial()
         unsigned long startTime = millis();
         while (millis() - startTime < commandDuration){
           pingFrontToF();
-          if (tofDistances[frontDirection] < 50){
+          if (tofDistances[frontDirection] < 75){
             if (verboseConsole) Serial1.println("Obstacle detected in front! Halting forward movement.");
             frontDirection = (frontDirection + 1) % 4; // Change front direction to right
             halt();
@@ -131,13 +131,21 @@ void controlFromSerial()
     // PING TOF SENSORS
     else if (val == 'p')
     {
-      pingToF();
+      int numTimes = command.substring(start + 2, end).toInt();
+      if (start + 2 >= end){
+        numTimes = 3; // Default to 3 times
+      }
+      pingToF(numTimes);
       transmitToFData();
     }
     // PING ULTRASONIC SENSORS
     else if (val == 'u')
     {
-      pingSensors();
+      int numTimes = command.substring(start + 2, end).toInt();
+      if (start + 2 >= end){
+        numTimes = 3; // Default to 3 times
+      }
+      pingSensors(numTimes); // number of times to ping
       transmitSensorData();
     }
     // HALT
@@ -149,6 +157,11 @@ void controlFromSerial()
     else if (val == 'c')
     {
       centering();
+    }
+    // ORIENT
+    else if (val == 'o')
+    {
+      orient();
     }
     else if (val == 'j')
     {
@@ -186,6 +199,18 @@ void controlFromSerial()
       blinkLED(10, 100);
     }
     else if (val == 'z'){
+      for (int i = 0; i<4 ; i++){
+        speeds[i] += 5;
+      }
+      Serial1.println("Speeds increased to: " + String(speeds[0]) + ", " + String(speeds[1]) + ", " + String(speeds[2]) + ", " + String(speeds[3]));
+    }
+    else if (val == 'x'){
+      for (int i = 0; i<4 ; i++){
+        speeds[i] -= 5;
+      }
+      Serial1.println("Speeds decreased to: " + String(speeds[0]) + ", " + String(speeds[1]) + ", " + String(speeds[2]) + ", " + String(speeds[3]));
+    }
+    else if (val == 'b'){
       carefulForward = !carefulForward;
     }
     else if (val == '<')
@@ -497,11 +522,11 @@ void halt()
   analogWrite(EnM4B, 255);
 }
 
-void pingSensors()
+void pingSensors(int numTimes = 5)
 {
     for (int i = 0; i < 8; i++)
     {
-        pingTimes[i] = sonars[i].ping_median(5);
+        pingTimes[i] = sonars[i].ping_median(numTimes);
         sensorDistancesReal[i] = pingTimes[i] / 5.73; // Convert to mm
     }
 
@@ -510,13 +535,14 @@ void pingSensors()
     }
 }
 
-void pingToF()
+void pingToF(int numTimes = 5)
 {
   for (int i=0; i<4; i++){
     tofDistancesReal[i] = sensors[i].readRangeContinuousMillimeters();
-    tofDistancesReal[i] += sensors[i].readRangeContinuousMillimeters();
-    tofDistancesReal[i] += sensors[i].readRangeContinuousMillimeters();
-    tofDistancesReal[i] /= 3;
+    for (int j=1; j<numTimes; j++){
+      tofDistancesReal[i] += sensors[i].readRangeContinuousMillimeters();
+    }
+    tofDistancesReal[i] /= (numTimes);
     if (sensors[i].timeoutOccurred()) {
       Serial1.print("TIMEOUT");
       tofDistancesReal[i] = 8000;
@@ -570,21 +596,41 @@ void centering(){
   }
   // If centering fails, rotate until two corners are detected (so we are facing a corner)
   // rotate 45 degrees so we are facing a corridor
-  if (verboseConsole) Serial1.println("Centering with corners...");
-  while(true){
-    halt();
-    rotateCW();
-    delay(150);
-    halt();
-    delay(200);
+  // if (verboseConsole) Serial1.println("Centering with corners...");
+  // while(true){
+  //   halt();
+  //   rotateCW();
+  //   delay(150);
+  //   halt();
+  //   delay(200);
+  //   pingToF();
+  //   if (tofDistances[0] < 200 && tofDistances[1] < 200 && (tofDistances[0] - tofDistances[1]) < 50){
+  //     halt();
+  //     rotateCW();
+  //     delay(500);
+  //     halt();
+  //     return;
+  //   }
+  // }
+}
+
+void orient() {
+  rotateCW();
+  int max = 0;
+  for (int i = 0; i <= 26; i++) {
     pingToF();
-    if (tofDistances[0] < 200 && tofDistances[1] < 200 && (tofDistances[0] - tofDistances[1]) < 50){
-      halt();
-      rotateCW();
-      delay(500);
-      halt();
-      return;
+    if (sensorDistances[0] > max) {
+      max = sensorDistances[0];
     }
+    delay(100);
+  }
+  for (int i = 0; i <= 26; i++) {
+    pingToF();
+    if (max * 0.95 < sensorDistances[0]) {
+      halt();
+      break;
+    }
+    delay(100);
   }
 }
 

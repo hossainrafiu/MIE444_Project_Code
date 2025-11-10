@@ -19,8 +19,8 @@ void backLeft(float speedDivisor = 1.0);
 void rotateCW(float speedDivisor = 1.0);
 void rotateCCW(float speedDivisor = 1.0);
 void halt();
-void pingSensors();
-void pingToF();
+void pingSensors(int numTimes = 5);
+void pingToF(int numTimes = 5);
 void pingFrontToF();
 void centering();
 void sensorChangeRotation(int sensorIndex, unsigned long delayTime=100);
@@ -29,6 +29,7 @@ void changeFrontDirection(int newDirection);
 void transmitSensorData();
 void blinkLED(int times, int delayTime);
 void transmitToFData();
+void orient();
 
 // Starting from front left, going clockwise
 // Ultrasonic Sensor 1 pins
@@ -109,7 +110,7 @@ int In4B=45; //Digital
 int EnM4B=10; //PWM
 
 // int speeds[12]={93,86,77,75,159,154,150,153,225,225,225,225};
-float speeds[12]={77.0,70.0,70.0,77.0,159.0,154.0,150.0,153.0,225.0,225.0,225.0,225.0};
+float speeds[12]={90.0,70.0,70.0,90.0,159.0,154.0,150.0,153.0,225.0,225.0,225.0,225.0};
 int shift=0;
 
 VL53L0X sensors[4];
