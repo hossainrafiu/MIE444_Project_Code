@@ -89,7 +89,21 @@ void controlFromSerial()
     if (val == 'f')
     {
       forward();
-      delay(commandDuration);
+      if (carefulForward){
+        // Check front sensors while moving forward
+        unsigned long startTime = millis();
+        while (millis() - startTime < commandDuration){
+          pingFrontToF();
+          if (tofDistances[frontDirection] < 50){
+            if (verboseConsole) Serial1.println("Obstacle detected in front! Halting forward movement.");
+            halt();
+            break;
+          }
+        }
+      }
+      else{
+        delay(commandDuration);
+      }
       halt();
     }
     // BACKWARDS
@@ -135,6 +149,15 @@ void controlFromSerial()
     {
       centering();
     }
+    else if (val == 'a')
+    {
+      int direction = command.charAt(start + 2) - '0';
+      if (direction < 0 || direction > 3){
+        Serial1.println("Invalid direction for 'r' command.");
+        return;
+      }
+      parallelSensorAdjustment(direction);
+    }
     // CHANGE FRONT DIRECTION
     else if (val == 'r')
     {
@@ -145,13 +168,24 @@ void controlFromSerial()
       }
       changeFrontDirection(direction);
     }
+    // CW ROTATION
+    else if (val == 'k'){
+      rotateCW();
+      delay(commandDuration);
+      halt();
+    }
+    // CCW ROTATION
+    else if (val == 'j'){
+      rotateCCW();
+      delay(commandDuration);
+      halt();
+    }
     // BLINK LED
     else if (val == 'g'){
       blinkLED(10, 100);
     }
-    else if (val == 'm')
-    {
-      manualControl();
+    else if (val == 'z'){
+      carefulForward = !carefulForward;
     }
     else if (val == '<')
     {
@@ -164,7 +198,7 @@ void controlFromSerial()
       MOVELEFTWHENPOSSIBLE = false;
     }
     delay(10);
-    if (val != 0 && val != 'p')
+    if (val != 0 && val != 'p' && val != 'u')
     {
       delay(100);
       Serial1.println("[+]");
@@ -464,51 +498,10 @@ void halt()
 
 void pingSensors()
 {
-    pingTimes[0] = sonar1.ping();
-    pingTimes[1] = sonar2.ping();
-    pingTimes[2] = sonar3.ping();
-    pingTimes[3] = sonar4.ping();
-    pingTimes[4] = sonar5.ping();
-    pingTimes[5] = sonar6.ping();
-    pingTimes[6] = sonar7.ping();
-    pingTimes[7] = sonar8.ping();
-
-    saveLastReadings();
-    sensorDistancesReal[0] = pingTimes[0] / 5.7; // convert to mm
-    sensorDistancesReal[1] = pingTimes[1] / 5.7; // convert to mm
-    sensorDistancesReal[2] = pingTimes[2] / 5.7; // convert to mm
-    sensorDistancesReal[3] = pingTimes[3] / 5.7; // convert to mm
-    sensorDistancesReal[4] = pingTimes[4] / 5.7; // convert to mm
-    sensorDistancesReal[5] = pingTimes[5] / 5.7; // convert to mm
-    sensorDistancesReal[6] = pingTimes[6] / 5.7; // convert to mm
-    sensorDistancesReal[7] = pingTimes[7] / 5.7; // convert to mm
-
     for (int i = 0; i < 8; i++)
     {
-        Serial.print(i); // Sensor number
-        Serial.print(" - ");
-        Serial.print(sensorDistances[i]);
-        Serial.print(", ");
-        delay(10); // delay of 10ms
-    }
-    Serial.println(".");
-    for (int i = 0; i < 8; i++)
-    {
-        Serial.print(i); // Sensor number
-        Serial.print(" - ");
-        Serial.print(pingTimes[i]);
-        Serial.print(", ");
-        delay(10); // delay of 10ms
-    }
-    Serial.println(".");
-
-    if (nicePrint)
-    {
-      Serial.print("            ");Serial.print(sensorDistances[0]);Serial.print("   ");Serial.print(sensorDistances[1]);Serial.println();
-      Serial.print("    ");Serial.print(sensorDistances[7]);Serial.print("                  ");Serial.print(sensorDistances[2]);Serial.println();
-      Serial.print("    ");Serial.print(sensorDistances[6]);Serial.print("                  ");Serial.print(sensorDistances[3]);Serial.println();
-      Serial.print("            ");Serial.print(sensorDistances[5]);Serial.print("   ");Serial.print(sensorDistances[4]);Serial.println();
-      Serial.println();
+        pingTimes[i] = sonars[i].ping_median(5);
+        sensorDistancesReal[i] = pingTimes[i] / 5.73; // Convert to mm
     }
 
     for (int i = 0 ; i < 8 ; i++){
@@ -518,32 +511,34 @@ void pingSensors()
 
 void pingToF()
 {
-  saveLastReadings();
   for (int i=0; i<4; i++){
     tofDistancesReal[i] = sensors[i].readRangeContinuousMillimeters();
+    tofDistancesReal[i] += sensors[i].readRangeContinuousMillimeters();
+    tofDistancesReal[i] += sensors[i].readRangeContinuousMillimeters();
+    tofDistancesReal[i] /= 3;
     if (sensors[i].timeoutOccurred()) {
-      Serial1.print(" TIMEOUT");
+      Serial1.print("TIMEOUT");
       tofDistancesReal[i] = 8000;
     }
-    if (verboseSensors) {
-      Serial1.print(i);
-      Serial1.print(": ");
-      Serial1.print(tofDistancesReal[i]);
-      Serial1.print(" mm, ");
-    }
   }
-  if (verboseSensors) Serial1.println();
 
   for (int i = 0 ; i < 4 ; i++){
     lastToFDistances[i] = tofDistances[i];
     tofDistances[i] = tofDistancesReal[(i + frontDirection) % 4];
   }
-  if (OMNIWHEELDRIVE && verboseSensors){
-    Serial1.print("Front: ");
-    Serial1.print(frontDirection);
-    Serial1.print("Front Distance: ");
-    Serial1.print(tofDistances[0]);
+}
+
+void pingFrontToF()
+{
+  tofDistancesReal[frontDirection] = sensors[frontDirection].readRangeContinuousMillimeters();
+  tofDistancesReal[frontDirection] += sensors[frontDirection].readRangeContinuousMillimeters();
+  tofDistancesReal[frontDirection] += sensors[frontDirection].readRangeContinuousMillimeters();
+  tofDistancesReal[frontDirection] /= 3;
+  if (sensors[frontDirection].timeoutOccurred()) {
+    Serial1.print("TIMEOUT");
+    tofDistancesReal[frontDirection] = 8000;
   }
+  tofDistances[0] = tofDistancesReal[frontDirection];
 }
 
 void centering(){
@@ -677,6 +672,10 @@ void parallelSensorAdjustment(int direction){
 }
 
 void changeFrontDirection(int newFront){
+  if (tofDistancesReal[newFront] < 100) {
+    Serial1.println("Cannot change front direction to " + String(newFront) + " due to obstacle.");
+    return;
+  }
   frontDirection = newFront % 4;
   if (verboseConsole) Serial1.println("Front direction changed to: " + String(frontDirection));
   pingSensors();

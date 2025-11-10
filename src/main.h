@@ -19,14 +19,16 @@ void backLeft(float speedDivisor = 1.0);
 void rotateCW(float speedDivisor = 1.0);
 void rotateCCW(float speedDivisor = 1.0);
 void halt();
-void saveLastReadings();
 void pingSensors();
 void pingToF();
+void pingFrontToF();
 void centering();
 void sensorChangeRotation(int sensorIndex, unsigned long delayTime=100);
 void parallelSensorAdjustment(int sensorIndex);
 void changeFrontDirection(int newDirection);
 void transmitSensorData();
+void blinkLED(int times, int delayTime);
+void transmitToFData();
 
 // Starting from front left, going clockwise
 // Ultrasonic Sensor 1 pins
@@ -71,6 +73,7 @@ NewPing sonar5(TRIG_PIN5, ECHO_PIN5, MAX_DISTANCE);
 NewPing sonar6(TRIG_PIN6, ECHO_PIN6, MAX_DISTANCE);
 NewPing sonar7(TRIG_PIN7, ECHO_PIN7, MAX_DISTANCE);
 NewPing sonar8(TRIG_PIN8, ECHO_PIN8, MAX_DISTANCE);
+NewPing sonars[8] = {sonar1, sonar2, sonar3, sonar4, sonar5, sonar6, sonar7, sonar8};
 // Ultrasonic sensor orientations
 //       [0][1]
 //   [7]        [2]
@@ -120,7 +123,8 @@ long tofDistancesReal[4]; // Used for omniwheel drive where the 'front' is rotat
 //     [2]
 
 char val = 0;
-int commandDuration = 0;
+unsigned long commandDuration = 0;
+bool carefulForward = true;
 // variables to store the number of encoder pulses for each motor
 
 volatile long motCount = 0;
