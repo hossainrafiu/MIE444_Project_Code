@@ -120,6 +120,7 @@ long tofDistancesReal[4]; // Used for omniwheel drive where the 'front' is rotat
 //     [2]
 
 char val = 0;
+int commandDuration = 0;
 // variables to store the number of encoder pulses for each motor
 
 volatile long motCount = 0;

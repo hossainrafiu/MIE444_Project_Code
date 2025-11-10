@@ -63,340 +63,110 @@ void loop(){
 
 String command = "";
 int start = 0;
+int end = 0;
 void controlFromSerial()
 {
   if (Serial1.available())
   {
     command = Serial1.readString();
-    // Serial1.println();
+
     if (!remoteControl) Serial1.println("Received command: " + command);
+    
     start = command.indexOf('[');
-    if (start == -1)
+    end = command.indexOf(']');
+    if (start == -1 || end == -1)
     {
       Serial1.println("Invalid command format.");
       return;
     }
     val = command.charAt(start + 1);
-    lastCommandTime = millis();
-  }
-  else if (millis() - lastCommandTime > commandTimeout || !followLastCommand)
-  {
-      val = 0; 
-  }
+    commandDuration = command.substring(start + 2, end).toInt();
 
-  // Execute commands based on received value
-  if (val == 'f')
-  {
-    obstacleAvoidance();
-  }
-  else if (val == 'p')
-  {
-    pingToF();
-    transmitSensorData();
-  }
-  else if (val == 'h')
-  {
-    halt();
-  }
-  else if (val == 'c')
-  {
-    centering();
-  }
-  else if (val == 'r')
-  {
-    val = command.charAt(start + 2); // get direction value
-    if (val < '0' || val > '3'){
-      Serial1.println("Invalid direction for 'r' command.");
-      return;
-    }
-    changeFrontDirection(int(val));
-  }
-  else if (val == 'l'){
-    // blink LED
-    for (int i=0; i<10; i++){
-      digitalWrite(LEDPin, HIGH);
-      delay(200);
-      digitalWrite(LEDPin, LOW);
-      delay(200);
-    }
-  }
-  else if (val == 'm')
-  {
-    manualControl();
-  }
-  else if (val == '<')
-  {
-    MOVELEFTWHENPOSSIBLE = true;
-    MOVERIGHTWHENPOSSIBLE = false;
-  }
-  else if (val == '>')
-  {
-    MOVERIGHTWHENPOSSIBLE = true;
-    MOVELEFTWHENPOSSIBLE = false;
-  }
-  delay(10);
-  if (val != 0 && val != 'p')
-  {
-    delay(100);
-    Serial1.println("[+]");
-  }
-}
-
-void manualControl() 
-{
-    if (Serial1.available())
+    // FORWARD
+    if (val == 'f')
     {
-      val = Serial1.read();
-      if (val == 'w')
-      {
-          // drive forward
-          forward(8000);
-          lastDriveCommand = millis();
-      }
-      else if(val == 's')
-      {
-          // drive backward
-          backwards();
-          lastDriveCommand = millis();
-      }
-      else if(val == 'd')
-      {
-          // drive right
-          right();
-          lastDriveCommand = millis();
-      }
-      else if(val == 'a')
-      {
-          // drive left
-          left();
-          lastDriveCommand = millis();
-      }
-      else if(val == 'i')
-      {
-        frontLeft();
-      }
-      else if(val == 'o')
-      {
-        frontRight();
-      }
-      else if(val == 'k')
-      {
-        backLeft();
-      }
-      else if(val == 'l')
-      {
-        backRight();
-      }
-      else if(val == 'q')
-      {
-          // rotate Counter Clockwise
-          rotateCCW();
-          lastDriveCommand = millis();
-      }
-      else if(val == 'e')
-      {
-          // rotate Clockwise
-          rotateCW();
-          lastDriveCommand = millis();
-      }
-      else if(val == 'H')
-      {
-          // break
-          halt();
-      }
-      else if(val == 'z')
-      {
-          // shift into low speed
-          shift=0;
-      }
-      else if(val == 'x')
-      {
-          // shift into medium speed
-          shift=4;
-      }
-      else if(val == 'c')
-      {
-          // shift into high speed
-          shift=8;
-      }
-      else if (val == 'u')
-      {
-          pingSensors();
-      }
-    }
-    // Check for drive timeout
-    if (millis() - lastDriveCommand > driveTimeout)
-    {
-        halt();
-    }
-}
-
-void obstacleAvoidance()
-{
-    // pingSensors(); // distances are in inches
-    if (verboseConsole) Serial1.println("Pinging ToF sensors...");
-    pingToF(); // distances are in mm
-
-    if (MOVELEFTWHENPOSSIBLE){
-      // try to move left if possible
-      if (tofDistances[3] > 150){
-        if (verboseConsole) Serial1.println("Path clear on the left, carefully moving straight and then rotating.");
-        halt();
-        forward();
-        delay(500);
-        halt();
-        if (OMNIWHEELDRIVE){
-          changeFrontDirection(3);
-        }
-        else {
-          rotateCCW();
-          delay(900);
-        }
-        MOVELEFTWHENPOSSIBLE = false;
-      }
-    }
-    if (MOVERIGHTWHENPOSSIBLE){
-      // try to move right if possible
-      if (tofDistances[1] > 150){
-        if (verboseConsole) Serial1.println("Path clear on the right, carefully moving straight and then rotating.");
-        halt();
-        forward();
-        delay(500);
-        halt();
-        if (OMNIWHEELDRIVE){
-          changeFrontDirection(1);
-        }
-        else {
-          rotateCW();
-          delay(900);
-        }
-        MOVERIGHTWHENPOSSIBLE = false;
-      }
-    }
-
-    if (lastToFDistances[1] < 200 && abs(lastToFDistances[1] - tofDistances[1]) > 100){
-      if (verboseConsole) Serial1.println("Significant change in right sensor distance.");
-      // moving forward to avoid wall collision if wanting to move right
-      halt();
       forward();
-      delay(500);
+      delay(commandDuration);
       halt();
     }
-    else if (lastToFDistances[3] < 200 && abs(lastToFDistances[3] - tofDistances[3]) > 100){
-      if (verboseConsole) Serial1.println("Significant change in left sensor distance.");
-      // moving forward to avoid wall collision if wanting to move left
+    // BACKWARDS
+    else if (val == 'b')
+    {
+      backwards();
+      delay(commandDuration);
       halt();
-      forward();
-      delay(500);
+    }
+    // LEFT
+    else if (val == 'l')
+    {
+      left();
+      delay(commandDuration);
       halt();
     }
-
-    // Deal with bad readings
-    if (tofDistances[0] == 0)
+    // RIGHT
+    else if (val == 'r')
+    {
+      right();
+      delay(commandDuration);
+      halt();
+    }
+    // PING TOF SENSORS
+    else if (val == 'p')
+    {
+      pingToF();
+      transmitToFData();
+    }
+    // PING ULTRASONIC SENSORS
+    else if (val == 'u')
+    {
+      pingSensors();
+      transmitSensorData();
+    }
+    // HALT
+    else if (val == 'h')
     {
       halt();
-      if (verboseConsole) Serial1.println("Bad reading on front ToF sensor, stopping rover.");
-      return;
     }
-
-    // Check for obstacles in front of the rover
-    if (tofDistances[0] < 60)
+    // CENTERING
+    else if (val == 'c')
     {
-        // Obstacle detected in front, stop and back up
-        if (verboseConsole) Serial1.println("Obstacle detected in front, backing up and rotating.");
-        halt();
-        delay(500);
-        backwards();
-        delay(100);
-        halt();
-        delay(500);
-        // Rotate to avoid obstacle
-        // if (remoteControl){
-        //   if (verboseConsole) Serial1.println("Remote control active, not changing front direction.");
-        // }
-        if (OMNIWHEELDRIVE){
-          if (tofDistances[1] < 150){
-            frontDirection = (frontDirection + 3) % 4;
-          }
-          else {
-            frontDirection = (frontDirection + 1) % 4;
-          }
-        }
-        else if (tofDistances[1] < 150)
-        {
-            // Obstacle on the right, rotate ACW
-            if (verboseConsole) Serial1.println("Obstacle detected on the right, rotating counter-clockwise.");
-            rotateCCW();
-            delay(900);
-            halt();
-        }
-        else
-        {
-            // No obstacle on the right, rotate CW
-            if (verboseConsole) Serial1.println("No obstacle on the right, rotating clockwise.");
-            rotateCW();
-            delay(900);
-            halt();
-        }
+      centering();
     }
-    
-    // Avoiding right wall collisions
-    else if (tofDistances[1] < 60 && tofDistances[1] != 0)
+    // CHANGE FRONT DIRECTION
+    else if (val == 'r')
     {
-        // Obstacle too close on the right, veer left
-        if (verboseConsole) Serial1.println("Obstacle too close on the right sensor: " + String(tofDistances[1]) + "mm, veering left.");
-        halt();
-        delay(100);
-        left(1.1);
-        delay(300);
-        halt();
-        parallelSensorAdjustment(1);
+      int direction = command.charAt(start + 2) - '0';
+      if (direction < 0 || direction > 3){
+        Serial1.println("Invalid direction for 'r' command.");
+        return;
+      }
+      changeFrontDirection(direction);
     }
-    // Avoiding left wall collisions
-    else if (tofDistances[3] < 60 && tofDistances[3] != 0)
+    // BLINK LED
+    else if (val == 'g'){
+      blinkLED(10, 100);
+    }
+    else if (val == 'm')
     {
-        if (verboseConsole) Serial1.println("Obstacle too close on the left sensor: " + String(tofDistances[3]) + "mm, veering right.");
-        halt();
-        delay(100);
-        right(1.1);
-        delay(300);
-        halt();
-        parallelSensorAdjustment(3);
+      manualControl();
     }
-    // Hugging Left Wall
-    else if (tofDistances[3]>90 && tofDistances[3] < 150)
+    else if (val == '<')
     {
-        if (verboseConsole) Serial1.println("Too far from left sensor: " + String(tofDistances[3]) + "mm, veering left.");
-        halt();
-        delay(100);
-        left(1.1);
-        delay(400);
-        halt();
-        parallelSensorAdjustment(3);
-        // sensorChangeRotation(6, 100);
+      MOVELEFTWHENPOSSIBLE = true;
+      MOVERIGHTWHENPOSSIBLE = false;
     }
-    // Hugging Right Wall (only if no left wall detected)
-    else if (tofDistances[1]>90 && tofDistances[1] < 150 && tofDistances[3] > 150)
+    else if (val == '>')
     {
-        if (verboseConsole) Serial1.println("Too far from right sensor: " + String(tofDistances[1]) + "mm, veering right.");
-        halt();
-        delay(100);
-        right(1.1);
-        delay(400);
-        halt();
-        parallelSensorAdjustment(1);
-        // sensorChangeRotation(2, 100);
+      MOVERIGHTWHENPOSSIBLE = true;
+      MOVELEFTWHENPOSSIBLE = false;
     }
-
-
-    // Moving forward after adjustments
-    if (verboseConsole) Serial1.println("Moving forward.");
-    float speedDivisor = (tofDistances[0] < 100) ? 1.4 : 1.0; 
-    forward(speedDivisor);
-    delay(500);
-    halt();
-    delay(100);
-
+    delay(10);
+    if (val != 0 && val != 'p')
+    {
+      delay(100);
+      Serial1.println("[+]");
+    }
+  }
 }
 
 // Assuming:
@@ -689,12 +459,6 @@ void halt()
   analogWrite(EnM4B, 255);
 }
 
-void saveLastReadings(){
-  for (int i = 0 ; i < 8 ; i++){
-    lastSensorDistances[i] = sensorDistances[i];
-  }
-}
-
 void pingSensors()
 {
     pingTimes[0] = sonar1.ping();
@@ -881,7 +645,7 @@ void parallelSensorAdjustment(int direction){
   }
   int diff = sensorDistances[sensor1] - sensorDistances[sensor2];
   if (verboseConsole) Serial1.println("Parallel adjustment diff: " + String(diff));
-  if (abs(diff) > 0 && abs(diff) < 100){
+  if (abs(diff) > 0 && abs(diff) < 100 && tofDistances[direction] < 100){
     unsigned long delayTime = abs(diff) * 5; // adjust delay time based on difference
     if (diff > 0){
       // sensor1 is farther than sensor2, rotate CW
@@ -899,13 +663,13 @@ void parallelSensorAdjustment(int direction){
       delay(delayTime);
       halt();
     }
-  }
-  pingSensors(); // update readings after adjustment
-  delay(100);
-  if (abs(sensorDistances[sensor1] - sensorDistances[sensor2]) > 20 &&
-      abs(sensorDistances[sensor1] - sensorDistances[sensor2]) < 100){
-    if (verboseConsole) Serial1.println("Further parallel adjustment needed.");
-    parallelSensorAdjustment(direction); // recursive call if still not parallel
+    pingSensors(); // update readings after adjustment
+    delay(100);
+    if (abs(sensorDistances[sensor1] - sensorDistances[sensor2]) > 20 &&
+        abs(sensorDistances[sensor1] - sensorDistances[sensor2]) < 100){
+      if (verboseConsole) Serial1.println("Further parallel adjustment needed.");
+      parallelSensorAdjustment(direction); // recursive call if still not parallel
+    }
   }
 }
 
@@ -916,7 +680,7 @@ void changeFrontDirection(int newFront){
   delay(100);
 }
 
-void transmitSensorData(){
+void transmitToFData(){
   // Transmit sensor distances over Serial1 in a comma-separated format
   String buffer = "[";
   for (int i = 0; i < 4; i++){
@@ -926,4 +690,25 @@ void transmitSensorData(){
   buffer += String(frontDirection);
   buffer += "]";
   Serial1.println(buffer);
+}
+
+void transmitSensorData(){
+  // Transmit sensor distances over Serial1 in a comma-separated format
+  String buffer = "[";
+  for (int i = 0; i < 8; i++){
+    buffer += String(sensorDistancesReal[i]);
+    buffer += ",";
+  }
+  buffer += String(frontDirection);
+  buffer += "]";
+  Serial1.println(buffer);
+}
+
+void blinkLED(int times, int delayTime){
+  for (int i=0; i<times; i++){
+    digitalWrite(LEDPin, HIGH);
+    delay(delayTime);
+    digitalWrite(LEDPin, LOW);
+    delay(delayTime);
+  }
 }
