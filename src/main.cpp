@@ -96,6 +96,7 @@ void controlFromSerial()
           pingFrontToF();
           if (tofDistances[frontDirection] < 50){
             if (verboseConsole) Serial1.println("Obstacle detected in front! Halting forward movement.");
+            frontDirection = (frontDirection + 1) % 4; // Change front direction to right
             halt();
             break;
           }
