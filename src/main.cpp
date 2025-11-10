@@ -47,6 +47,7 @@ void setup() {
 }
 
 void additionalSetup(){
+  if (true) return;
   delay(1000);
   centering();
   digitalWrite(LEDPin, HIGH);
@@ -55,22 +56,27 @@ void additionalSetup(){
 void loop(){
   // while(true){pingSensors(); delay(1000);};
   // while(true){parallelSensorAdjustment(1); delay(1000);};
+  // manualControl();
   // obstacleAvoidance();
   controlFromSerial();
 }
 
 String command = "";
+int start = 0;
 void controlFromSerial()
 {
   if (Serial1.available())
   {
-    command = Serial1.readStringUntil(']');
-    if (command.charAt(0) != '[')
+    command = Serial1.readString();
+    // Serial1.println();
+    if (!remoteControl) Serial1.println("Received command: " + command);
+    start = command.indexOf('[');
+    if (start == -1)
     {
       Serial1.println("Invalid command format.");
       return;
     }
-    val = command.charAt(1);
+    val = command.charAt(start + 1);
     lastCommandTime = millis();
   }
   else if (millis() - lastCommandTime > commandTimeout || !followLastCommand)
@@ -98,7 +104,7 @@ void controlFromSerial()
   }
   else if (val == 'r')
   {
-    val = command.charAt(2); // get direction value
+    val = command.charAt(start + 2); // get direction value
     if (val < '0' || val > '3'){
       Serial1.println("Invalid direction for 'r' command.");
       return;
@@ -132,15 +138,15 @@ void controlFromSerial()
   if (val != 0 && val != 'p')
   {
     delay(100);
-    Serial1.println("+");
+    Serial1.println("[+]");
   }
 }
 
 void manualControl() 
 {
-    if (Serial.available())
+    if (Serial1.available())
     {
-      val = Serial.read();
+      val = Serial1.read();
       if (val == 'w')
       {
           // drive forward
@@ -268,7 +274,7 @@ void obstacleAvoidance()
       }
     }
 
-    if (abs(lastToFDistances[1] - tofDistances[1]) > 100){
+    if (lastToFDistances[1] < 200 && abs(lastToFDistances[1] - tofDistances[1]) > 100){
       if (verboseConsole) Serial1.println("Significant change in right sensor distance.");
       // moving forward to avoid wall collision if wanting to move right
       halt();
@@ -276,7 +282,7 @@ void obstacleAvoidance()
       delay(500);
       halt();
     }
-    else if (abs(lastToFDistances[3] - tofDistances[3]) > 100){
+    else if (lastToFDistances[3] < 200 && abs(lastToFDistances[3] - tofDistances[3]) > 100){
       if (verboseConsole) Serial1.println("Significant change in left sensor distance.");
       // moving forward to avoid wall collision if wanting to move left
       halt();
@@ -305,15 +311,15 @@ void obstacleAvoidance()
         halt();
         delay(500);
         // Rotate to avoid obstacle
-        if (remoteControl){
-          if (verboseConsole) Serial1.println("Remote control active, not changing front direction.");
-        }
-        else if (OMNIWHEELDRIVE){
+        // if (remoteControl){
+        //   if (verboseConsole) Serial1.println("Remote control active, not changing front direction.");
+        // }
+        if (OMNIWHEELDRIVE){
           if (tofDistances[1] < 150){
-            changeFrontDirection(3);
+            frontDirection = (frontDirection + 3) % 4;
           }
           else {
-            changeFrontDirection(1);
+            frontDirection = (frontDirection + 1) % 4;
           }
         }
         else if (tofDistances[1] < 150)
@@ -341,7 +347,7 @@ void obstacleAvoidance()
         if (verboseConsole) Serial1.println("Obstacle too close on the right sensor: " + String(tofDistances[1]) + "mm, veering left.");
         halt();
         delay(100);
-        left();
+        left(1.1);
         delay(300);
         halt();
         parallelSensorAdjustment(1);
@@ -352,7 +358,7 @@ void obstacleAvoidance()
         if (verboseConsole) Serial1.println("Obstacle too close on the left sensor: " + String(tofDistances[3]) + "mm, veering right.");
         halt();
         delay(100);
-        right();
+        right(1.1);
         delay(300);
         halt();
         parallelSensorAdjustment(3);
@@ -363,7 +369,7 @@ void obstacleAvoidance()
         if (verboseConsole) Serial1.println("Too far from left sensor: " + String(tofDistances[3]) + "mm, veering left.");
         halt();
         delay(100);
-        left();
+        left(1.1);
         delay(400);
         halt();
         parallelSensorAdjustment(3);
@@ -375,7 +381,7 @@ void obstacleAvoidance()
         if (verboseConsole) Serial1.println("Too far from right sensor: " + String(tofDistances[1]) + "mm, veering right.");
         halt();
         delay(100);
-        right();
+        right(1.1);
         delay(400);
         halt();
         parallelSensorAdjustment(1);
@@ -385,8 +391,9 @@ void obstacleAvoidance()
 
     // Moving forward after adjustments
     if (verboseConsole) Serial1.println("Moving forward.");
-    forward(tofDistances[0]);
-    delay(300);
+    float speedDivisor = (tofDistances[0] < 100) ? 1.4 : 1.0; 
+    forward(speedDivisor);
+    delay(500);
     halt();
     delay(100);
 
@@ -402,24 +409,24 @@ void obstacleAvoidance()
 // Assuming:
 // In1:HIGH and In2:LOW -> CCW
 
-void forward(long sensorReading = 8000)
+void forward(float speedDivisor = 1.0)
 {
   switch (frontDirection)
   {
   case 0: // front
-    frontLeft(sensorReading);
+    frontLeft(speedDivisor);
     break;
 
   case 1: // right
-    frontRight();
+    frontRight(speedDivisor);
     break;
 
   case 2: // back
-    backRight();
+    backRight(speedDivisor);
     break;
 
   case 3: // left
-    backLeft();
+    backLeft(speedDivisor);
     break;
 
   default:
@@ -444,21 +451,21 @@ void forward(long sensorReading = 8000)
   // analogWrite(EnM4B, speeds[3+shift]);
 
 }
-void backwards()
+void backwards(float speedDivisor = 1.0)
 {
   switch (frontDirection)
   {
   case 0: // front
-    backRight();
+    backRight(speedDivisor);
     break;
   case 1: // right
-    backLeft();
+    backLeft(speedDivisor);
     break;
   case 2: // back
-    frontLeft();
+    frontLeft(speedDivisor);
     break;
   case 3: // left
-    frontRight();
+    frontRight(speedDivisor);
     break;
   default:
     break;
@@ -481,21 +488,21 @@ void backwards()
   // digitalWrite(In4B, LOW); 
   // analogWrite(EnM4B, speeds[3+shift]);
 }
-void left()
+void left(float speedDivisor = 1.0)
 {
   switch (frontDirection)
   {
   case 0: // front
-    backLeft();
+    backLeft(speedDivisor);
     break;
   case 1: // right
-    frontLeft();
+    frontLeft(speedDivisor);
     break;
   case 2: // back
-    frontRight();
+    frontRight(speedDivisor);
     break;
   case 3: // left
-    backRight();
+    backRight(speedDivisor);
     break;
   default:
     break;
@@ -518,21 +525,21 @@ void left()
   // digitalWrite(In4B, LOW); 
   // analogWrite(EnM4B, speeds[3+shift]);
 }
-void right()
+void right(float speedDivisor = 1.0)
 {
   switch (frontDirection)
   {
   case 0: // front
-    frontRight();
+    frontRight(speedDivisor);
     break;
   case 1: // right
-    backRight();
+    backRight(speedDivisor);
     break;
   case 2: // back
-    backLeft();
+    backLeft(speedDivisor);
     break;
   case 3: // left
-    frontLeft();
+    frontLeft(speedDivisor);
     break;
   default:
     break;
@@ -555,11 +562,11 @@ void right()
   // digitalWrite(In4B, HIGH); 
   // analogWrite(EnM4B, speeds[3+shift]);
 }
-void frontRight()
+void frontRight(float speedDivisor = 1.0)
 {
   digitalWrite(In1A, HIGH); 
   digitalWrite(In2A, LOW); 
-  analogWrite(EnM1A, speeds[0+shift]);
+  analogWrite(EnM1A, speeds[0+shift]/speedDivisor);
 
   digitalWrite(In3A, LOW); 
   digitalWrite(In4A, LOW); 
@@ -571,29 +578,27 @@ void frontRight()
 
   digitalWrite(In3B, LOW); 
   digitalWrite(In4B, HIGH); 
-  analogWrite(EnM4B, speeds[3+shift]);
+  analogWrite(EnM4B, speeds[3+shift]/speedDivisor);
 }
-void frontLeft(long sensorReading)
+void frontLeft(float speedDivisor = 1.0)
 {
-  float slowDown = 1;
-  if (sensorReading < 120) slowDown = 1.2;
   digitalWrite(In1A, LOW); 
   digitalWrite(In2A, LOW); 
   analogWrite(EnM1A, 0);
 
   digitalWrite(In3A, LOW); 
   digitalWrite(In4A, HIGH); 
-  analogWrite(EnM2A, speeds[1+shift]/slowDown);
+  analogWrite(EnM2A, speeds[1+shift]/speedDivisor);
 
   digitalWrite(In1B, HIGH); 
   digitalWrite(In2B, LOW); 
-  analogWrite(EnM3B, speeds[2+shift]/slowDown);
+  analogWrite(EnM3B, speeds[2+shift]/speedDivisor);
 
   digitalWrite(In3B, LOW); 
   digitalWrite(In4B, LOW); 
   analogWrite(EnM4B, 0);
 }
-void backRight()
+void backRight(float speedDivisor = 1.0)
 {
   digitalWrite(In1A, LOW); 
   digitalWrite(In2A, LOW); 
@@ -601,21 +606,21 @@ void backRight()
 
   digitalWrite(In3A, HIGH); 
   digitalWrite(In4A, LOW); 
-  analogWrite(EnM2A, speeds[1+shift]);
+  analogWrite(EnM2A, speeds[1+shift]/speedDivisor);
 
   digitalWrite(In1B, LOW); 
   digitalWrite(In2B, HIGH); 
-  analogWrite(EnM3B, speeds[2+shift]);
+  analogWrite(EnM3B, speeds[2+shift]/speedDivisor);
 
   digitalWrite(In3B, LOW); 
   digitalWrite(In4B, LOW); 
   analogWrite(EnM4B, 0);
 }
-void backLeft()
+void backLeft(float speedDivisor = 1.0)
 {
   digitalWrite(In1A, LOW); 
   digitalWrite(In2A, HIGH); 
-  analogWrite(EnM1A, speeds[0+shift]);
+  analogWrite(EnM1A, speeds[0+shift]/speedDivisor);
 
   digitalWrite(In3A, LOW); 
   digitalWrite(In4A, LOW); 
@@ -627,43 +632,43 @@ void backLeft()
 
   digitalWrite(In3B, HIGH); 
   digitalWrite(In4B, LOW); 
-  analogWrite(EnM4B, speeds[3+shift]);
+  analogWrite(EnM4B, speeds[3+shift]/speedDivisor);
 }
-void rotateCW()
+void rotateCW(float speedDivisor = 1.0)
 {
   digitalWrite(In1A, HIGH); 
   digitalWrite(In2A, LOW); 
-  analogWrite(EnM1A, speeds[0]);
+  analogWrite(EnM1A, speeds[0]/speedDivisor);
 
   digitalWrite(In3A, HIGH); 
   digitalWrite(In4A, LOW); 
-  analogWrite(EnM2A, speeds[1]);
+  analogWrite(EnM2A, speeds[1]/speedDivisor);
 
   digitalWrite(In1B, HIGH); 
   digitalWrite(In2B, LOW); 
-  analogWrite(EnM3B, speeds[2]);
+  analogWrite(EnM3B, speeds[2]/speedDivisor);
 
   digitalWrite(In3B, HIGH); 
   digitalWrite(In4B, LOW); 
-  analogWrite(EnM4B, speeds[3]);
+  analogWrite(EnM4B, speeds[3]/speedDivisor);
 }
-void rotateCCW()
+void rotateCCW(float speedDivisor = 1.0)
 {
   digitalWrite(In1A, LOW); 
   digitalWrite(In2A, HIGH); 
-  analogWrite(EnM1A, speeds[0]);
+  analogWrite(EnM1A, speeds[0]/speedDivisor);
 
   digitalWrite(In3A, LOW); 
   digitalWrite(In4A, HIGH); 
-  analogWrite(EnM2A, speeds[1]);
+  analogWrite(EnM2A, speeds[1]/speedDivisor);
 
   digitalWrite(In1B, LOW); 
   digitalWrite(In2B, HIGH); 
-  analogWrite(EnM3B, speeds[2]);
+  analogWrite(EnM3B, speeds[2]/speedDivisor);
 
   digitalWrite(In3B, LOW); 
   digitalWrite(In4B, HIGH); 
-  analogWrite(EnM4B, speeds[3]);
+  analogWrite(EnM4B, speeds[3]/speedDivisor);
 }
 void halt()
 {
@@ -760,7 +765,7 @@ void pingToF()
       Serial1.print(" mm, ");
     }
   }
-  if (!remoteControl) Serial1.println();
+  if (verboseSensors) Serial1.println();
 
   for (int i = 0 ; i < 4 ; i++){
     lastToFDistances[i] = tofDistances[i];
@@ -781,7 +786,7 @@ void centering(){
   int lastMeasure3 = 8000;
   for (int count = 0; count < 40; count++){
     halt();
-    rotateCW();
+    rotateCW(1.3);
     delay(200);
     halt();
     delay(200);
@@ -793,7 +798,7 @@ void centering(){
     if (tofDistances[0] > 300 and tofDistances[1] < 150){
       if (lastMeasure1 > lastMeasure2 && lastMeasure3 > lastMeasure2){
         halt();
-        rotateCCW();
+        rotateCCW(1.3);
         delay(200);
         halt();
         return;
@@ -882,7 +887,7 @@ void parallelSensorAdjustment(int direction){
       // sensor1 is farther than sensor2, rotate CW
       if (verboseConsole) Serial1.println("Rotating CW for parallel adjustment.");
       halt();
-      rotateCW();
+      rotateCW(1.2);
       delay(delayTime);
       halt();
     }
@@ -890,7 +895,7 @@ void parallelSensorAdjustment(int direction){
       // sensor2 is farther than sensor1, rotate CCW
       if (verboseConsole) Serial1.println("Rotating CCW for parallel adjustment.");
       halt();
-      rotateCCW();
+      rotateCCW(1.2);
       delay(delayTime);
       halt();
     }
@@ -913,10 +918,10 @@ void changeFrontDirection(int newFront){
 
 void transmitSensorData(){
   // Transmit sensor distances over Serial1 in a comma-separated format
-  String buffer = "[]";
+  String buffer = "[";
   for (int i = 0; i < 4; i++){
     buffer += String(tofDistancesReal[i]);
-    buffer += ", ";
+    buffer += ",";
   }
   buffer += String(frontDirection);
   buffer += "]";

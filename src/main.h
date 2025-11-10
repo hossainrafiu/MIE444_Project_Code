@@ -5,17 +5,19 @@
 #define MAX_DISTANCE 200
 
 void additionalSetup();
+void manualControl();
+void controlFromSerial();
 void obstacleAvoidance();
-void forward(long sensorReading = 8000);
-void backwards();
-void left();
-void right();
-void frontRight();
-void frontLeft(long sensorReading = 8000);
-void backRight();
-void backLeft();
-void rotateCW();
-void rotateCCW();
+void forward(float speedDivisor = 1.0);
+void backwards(float speedDivisor = 1.0);
+void left(float speedDivisor = 1.0);
+void right(float speedDivisor = 1.0);
+void frontRight(float speedDivisor = 1.0);
+void frontLeft(float speedDivisor = 1.0);
+void backRight(float speedDivisor = 1.0);
+void backLeft(float speedDivisor = 1.0);
+void rotateCW(float speedDivisor = 1.0);
+void rotateCCW(float speedDivisor = 1.0);
 void halt();
 void saveLastReadings();
 void pingSensors();
@@ -104,7 +106,7 @@ int In4B=45; //Digital
 int EnM4B=10; //PWM
 
 // int speeds[12]={93,86,77,75,159,154,150,153,225,225,225,225};
-float speeds[12]={63,63,70,70,159,154,150,153,225,225,225,225};
+float speeds[12]={77.0,70.0,70.0,77.0,159.0,154.0,150.0,153.0,225.0,225.0,225.0,225.0};
 int shift=0;
 
 VL53L0X sensors[4];
@@ -122,7 +124,7 @@ char val = 0;
 
 volatile long motCount = 0;
 
-long driveTimeout = 1000; // milliseconds
+unsigned long driveTimeout = 500; // milliseconds
 long lastDriveCommand = 0;
 
 bool MOVELEFTWHENPOSSIBLE = false;
