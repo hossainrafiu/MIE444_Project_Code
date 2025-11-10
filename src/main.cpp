@@ -81,6 +81,9 @@ void controlFromSerial()
     }
     val = command.charAt(start + 1);
     commandDuration = command.substring(start + 2, end).toInt();
+    if (commandDuration <= 0){
+      commandDuration = 300; // Default duration 300 milliseconds
+    }
 
     // FORWARD
     if (val == 'f')
