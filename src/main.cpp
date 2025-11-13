@@ -74,9 +74,9 @@ void checks()
   // check for command timeout
   pingToF(3);
   if ((commandTimeout > 0 && (millis() - lastCommandTime >= commandTimeout))
-  || (tofDistances[frontDirection] < 50 && carefulForward)
-  || (tofDistances[(frontDirection+1)%4] < 30)
-  || (tofDistances[(frontDirection+3)%4] < 30))
+  || (tofDistances[0] < 50 && carefulForward)
+  || (tofDistances[1] < 30)
+  || (tofDistances[3] < 30))
   {
     halt();
     commandTimeout = 0;
@@ -95,6 +95,7 @@ void controlFromSerial()
 
     if (!remoteControl) Serial1.println("Received command: " + command);
     
+    // COMMAND PARSING
     start = command.indexOf('[');
     end = command.indexOf(']');
     if (start == -1 || end == -1)
