@@ -2,13 +2,12 @@
 
 bool verboseConsole = false;
 bool verboseSensors = false;
-bool followLastCommand = false;
 bool remoteControl = true;
 
 void setup() {
-  Serial1.begin(19200);
+  Serial1.begin(115200);
   if (!remoteControl) Serial1.println("Starting....");
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println("Starting....");
   pinMode(In1A, OUTPUT);
   pinMode(In2A, OUTPUT);
@@ -58,7 +57,29 @@ void loop(){
   // while(true){parallelSensorAdjustment(1); delay(1000);};
   // manualControl();
   // obstacleAvoidance();
+  // serialTest();
   controlFromSerial();
+}
+
+void serialTest(){
+  if (Serial1.available()){
+    char command = Serial1.read();
+    pingToF(1);
+    transmitToFData();
+  }
+}
+
+void checks()
+{
+  // check for command timeout
+  if ((commandTimeout > 0 && (millis() - lastCommandTime >= commandTimeout))
+  || (tofDistances[frontDirection] < 50 && carefulForward)
+  || (tofDistances[(frontDirection+1)%4] < 30)
+  || (tofDistances[(frontDirection+3)%4] < 30))
+  {
+    halt();
+    commandTimeout = 0;
+  }
 }
 
 String command = "";
@@ -66,9 +87,10 @@ int start = 0;
 int end = 0;
 void controlFromSerial()
 {
+  checks();
   if (Serial1.available())
   {
-    command = Serial1.readString();
+    command = Serial1.readStringUntil('\n');
 
     if (!remoteControl) Serial1.println("Received command: " + command);
     
@@ -89,45 +111,53 @@ void controlFromSerial()
     if (val == 'f')
     {
       forward();
-      if (carefulForward){
-        // Check front sensors while moving forward
-        unsigned long startTime = millis();
-        while (millis() - startTime < commandDuration){
-          pingFrontToF();
-          if (tofDistances[frontDirection] < 75){
-            if (verboseConsole) Serial1.println("Obstacle detected in front! Halting forward movement.");
-            frontDirection = (frontDirection + 1) % 4; // Change front direction to right
-            halt();
-            break;
-          }
-        }
-      }
-      else{
-        delay(commandDuration);
-      }
-      halt();
+      lastCommandTime = millis();
+      commandTimeout = commandDuration;
     }
     // BACKWARDS
     else if (val == 's')
     {
       backwards();
-      delay(commandDuration);
-      halt();
+      lastCommandTime = millis();
+      commandTimeout = commandDuration;
     }
     // LEFT
     else if (val == 'a')
     {
       left();
-      delay(commandDuration);
-      halt();
+      lastCommandTime = millis();
+      commandTimeout = commandDuration;
     }
     // RIGHT
     else if (val == 'd')
     {
       right();
-      delay(commandDuration);
-      halt();
+      lastCommandTime = millis();
+      commandTimeout = commandDuration;
     }
+    // CW ROTATION
+    else if (val == 'e'){
+      rotateCW();
+      lastCommandTime = millis();
+      commandTimeout = commandDuration;
+    }
+    // CCW ROTATION
+    else if (val == 'q'){
+      rotateCCW();
+      lastCommandTime = millis();
+      commandTimeout = commandDuration;
+    }
+    // CHANGE FRONT DIRECTION
+    else if (val == 'r')
+    {
+      int direction = command.charAt(start + 2) - '0';
+      if (direction < 0 || direction > 3){
+        Serial1.println("Invalid direction for 'r' command.");
+        return;
+      }
+      changeFrontDirection(direction);
+    }
+
     // PING TOF SENSORS
     else if (val == 'p')
     {
@@ -148,6 +178,7 @@ void controlFromSerial()
       pingSensors(numTimes); // number of times to ping
       transmitSensorData();
     }
+
     // HALT
     else if (val == 'h')
     {
@@ -163,50 +194,31 @@ void controlFromSerial()
     {
       orient();
     }
+    
+    // PARALLEL SENSOR ADJUSTMENT
     else if (val == 'j')
     {
       int direction = command.charAt(start + 2) - '0';
       if (direction < 0 || direction > 3){
-        Serial1.println("Invalid direction for 'r' command.");
+        Serial1.println("Invalid direction for 'j' command.");
         return;
       }
       parallelSensorAdjustment(direction);
-    }
-    // CHANGE FRONT DIRECTION
-    else if (val == 'r')
-    {
-      int direction = command.charAt(start + 2) - '0';
-      if (direction < 0 || direction > 3){
-        Serial1.println("Invalid direction for 'r' command.");
-        return;
-      }
-      changeFrontDirection(direction);
-    }
-    // CW ROTATION
-    else if (val == 'e'){
-      rotateCW();
-      delay(commandDuration);
-      halt();
-    }
-    // CCW ROTATION
-    else if (val == 'q'){
-      rotateCCW();
-      delay(commandDuration);
-      halt();
     }
     // BLINK LED
     else if (val == 'g'){
       blinkLED(10, 100);
     }
+
     else if (val == 'z'){
       for (int i = 0; i<4 ; i++){
-        speeds[i] += 5;
+        speeds[i] += 10;
       }
       Serial1.println("Speeds increased to: " + String(speeds[0]) + ", " + String(speeds[1]) + ", " + String(speeds[2]) + ", " + String(speeds[3]));
     }
     else if (val == 'x'){
       for (int i = 0; i<4 ; i++){
-        speeds[i] -= 5;
+        speeds[i] -= 10;
       }
       Serial1.println("Speeds decreased to: " + String(speeds[0]) + ", " + String(speeds[1]) + ", " + String(speeds[2]) + ", " + String(speeds[3]));
     }
@@ -223,10 +235,12 @@ void controlFromSerial()
       MOVERIGHTWHENPOSSIBLE = true;
       MOVELEFTWHENPOSSIBLE = false;
     }
-    delay(10);
-    if (val != 0 && val != 'p' && val != 'u')
+    else
     {
-      delay(100);
+      Serial1.println("Unknown command: " + String(val));
+    }
+  if (val != 0 && val != 'p' && val != 'u')
+    {
       Serial1.println("[+]");
     }
   }
@@ -738,6 +752,7 @@ void transmitToFData(){
   }
   buffer += String(frontDirection);
   buffer += "]";
+  Serial.println(buffer);
   Serial1.println(buffer);
 }
 

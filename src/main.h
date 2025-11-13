@@ -6,6 +6,7 @@
 
 void additionalSetup();
 void manualControl();
+void serialTest();
 void controlFromSerial();
 void obstacleAvoidance();
 void forward(float speedDivisor = 1.0);
@@ -81,7 +82,6 @@ NewPing sonars[8] = {sonar1, sonar2, sonar3, sonar4, sonar5, sonar6, sonar7, son
 //   [6]        [3]
 //       [5][4]
 
-bool nicePrint = true;
 unsigned long pingTimes[8];
 unsigned long lastSensorDistances[8];
 unsigned long sensorDistances[8];
@@ -126,12 +126,6 @@ long tofDistancesReal[4]; // Used for omniwheel drive where the 'front' is rotat
 char val = 0;
 unsigned long commandDuration = 0;
 bool carefulForward = true;
-// variables to store the number of encoder pulses for each motor
-
-volatile long motCount = 0;
-
-unsigned long driveTimeout = 500; // milliseconds
-long lastDriveCommand = 0;
 
 bool MOVELEFTWHENPOSSIBLE = false;
 bool MOVERIGHTWHENPOSSIBLE = false;
