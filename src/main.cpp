@@ -72,6 +72,7 @@ void serialTest(){
 void checks()
 {
   // check for command timeout
+  pingToF(3);
   if ((commandTimeout > 0 && (millis() - lastCommandTime >= commandTimeout))
   || (tofDistances[frontDirection] < 50 && carefulForward)
   || (tofDistances[(frontDirection+1)%4] < 30)
@@ -163,10 +164,12 @@ void controlFromSerial()
     {
       int numTimes = command.substring(start + 2, end).toInt();
       if (start + 2 >= end){
-        numTimes = 3; // Default to 3 times
+        transmitToFData();
       }
-      pingToF(numTimes);
-      transmitToFData();
+      else{
+        pingToF(numTimes);
+        transmitToFData();
+      }
     }
     // PING ULTRASONIC SENSORS
     else if (val == 'u')
