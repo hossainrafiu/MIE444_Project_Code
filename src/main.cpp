@@ -21,7 +21,10 @@ void setup() {
   pinMode(In3B, OUTPUT);
   pinMode(In4B, OUTPUT);
   pinMode(EnM4B, OUTPUT);
-  pinMode(LEDPin, OUTPUT);
+  pinMode(LEDPin[0], OUTPUT);
+  pinMode(LEDPin[1], OUTPUT);
+  pinMode(LEDPin[2], OUTPUT);
+  pinMode(LEDPin[3], OUTPUT);
 
   // setup ToF sensors
   if (true){
@@ -40,24 +43,26 @@ void setup() {
       sensors[i].startContinuous();
       sensors[i].setAddress(0x30 + i);
     }
+    if (false) {
+      for (int i=0; i<2; i++){
+        pinMode(loadToFPins[i], OUTPUT);
+        digitalWrite(loadToFPins[i], LOW); // Disable all sensors
+      }
+      for (int i=0; i<2; i++){
+        if (!remoteControl) Serial1.println("Initializing load sensor " + String(i));
+        pinMode(loadToFPins[i], INPUT);
+        delay(100); // Wait for sensor to boot
+        loadSensors[i].setTimeout(500);
+        loadSensors[i].init();
+        loadSensors[i].setMeasurementTimingBudget(20000);
+        loadSensors[i].startContinuous();
+        loadSensors[i].setAddress(0x35 + i);
+      }
+    }
   }
-  
-  additionalSetup();
-}
-
-void additionalSetup(){
-  if (true) return;
-  delay(1000);
-  centering();
-  digitalWrite(LEDPin, HIGH);
 }
 
 void loop(){
-  // while(true){pingSensors(); delay(1000);};
-  // while(true){parallelSensorAdjustment(1); delay(1000);};
-  // manualControl();
-  // obstacleAvoidance();
-  // serialTest();
   controlFromSerial();
 }
 
@@ -210,9 +215,15 @@ void controlFromSerial()
       }
       parallelSensorAdjustment(direction);
     }
-    // BLINK LED
-    else if (val == 'g'){
-      blinkLED(10, 100);
+
+    else if (val == 'l'){
+      int servo = command.charAt(start + 2) - '0';
+      int pwnPosition = command.substring(start+3,end).toInt();
+      actuateServo(servo, pwnPosition);
+    }
+    else if (val == 'v'){
+      pingLoadToF();
+      transmitLoadToFData();
     }
 
     else if (val == 'z'){
@@ -589,6 +600,26 @@ void pingFrontToF()
   tofDistances[0] = tofDistancesReal[frontDirection];
 }
 
+void pingLoadToF(int numTimes = 5)
+{
+  for (int i = 0 ; i < 2 ; i++){
+    lastLoadToFDistances[i] = loadToFDistances[i];
+  }
+  int calibration[2] = {0, 0};
+  for (int i=0; i<2; i++){
+    loadToFDistances[i] = loadSensors[i].readRangeContinuousMillimeters();
+    for (int j=1; j<numTimes; j++){
+      loadToFDistances[i] += loadSensors[i].readRangeContinuousMillimeters();
+    }
+    loadToFDistances[i] /= (numTimes);
+    loadToFDistances[i] -= calibration[i];
+    if (loadSensors[i].timeoutOccurred()) {
+      Serial1.print("TIMEOUT");
+      loadToFDistances[i] = 8000;
+    }
+  }
+}
+
 void centering(){
   if (verboseConsole) Serial1.println("Centering rover...");
   int lastMeasure1 = 8000;
@@ -748,6 +779,14 @@ void changeFrontDirection(int newFront){
   if (verboseConsole) Serial1.println("Front direction changed to: " + String(frontDirection));
   pingSensors();
   delay(100);
+  
+  for (int i = 0 ; i < 4 ; i++){
+    int write = 0;
+    if (i==newFront){
+      write = 1;
+    }
+    digitalWrite(LEDPin[i], write);
+  }
 }
 
 void transmitToFData(){
@@ -760,6 +799,18 @@ void transmitToFData(){
   buffer += String(frontDirection);
   buffer += "]";
   Serial.println(buffer);
+  Serial1.println(buffer);
+}
+
+void transmitLoadToFData(){
+  // Transmit load sensor distances over Serial1 in a comma-separated format
+  String buffer = "[";
+  for (int i = 0; i < 2; i++){
+    buffer += String(loadToFDistances[i]);
+    buffer += ",";
+  }
+  buffer += String(frontDirection);
+  buffer += "]";
   Serial1.println(buffer);
 }
 
@@ -777,9 +828,13 @@ void transmitSensorData(){
 
 void blinkLED(int times, int delayTime){
   for (int i=0; i<times; i++){
-    digitalWrite(LEDPin, HIGH);
+    digitalWrite(LEDPin[0], HIGH);
     delay(delayTime);
-    digitalWrite(LEDPin, LOW);
+    digitalWrite(LEDPin[0], LOW);
     delay(delayTime);
   }
+}
+
+void actuateServo(int servoPin, int pwmPostition){
+  analogWrite(servoPin, pwmPostition);
 }

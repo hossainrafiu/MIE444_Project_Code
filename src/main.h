@@ -22,15 +22,18 @@ void rotateCCW(float speedDivisor = 1.0);
 void halt();
 void pingSensors(int numTimes = 5);
 void pingToF(int numTimes = 5);
+void pingLoadToF(int numTimes = 5);
 void pingFrontToF();
 void centering();
 void sensorChangeRotation(int sensorIndex, unsigned long delayTime=100);
 void parallelSensorAdjustment(int sensorIndex);
 void changeFrontDirection(int newDirection);
 void transmitSensorData();
-void blinkLED(int times, int delayTime);
 void transmitToFData();
+void transmitLoadToFData();
+void blinkLED(int times, int delayTime);
 void orient();
+void actuateServo(int servoIndex, int angle);
 
 // Starting from front left, going clockwise
 // Ultrasonic Sensor 1 pins
@@ -87,7 +90,7 @@ unsigned long lastSensorDistances[8];
 unsigned long sensorDistances[8];
 int sensorDistancesReal[8]; // Used for omniwheel drive where the 'front' is rotated
 
-int LEDPin = 7;
+int LEDPin[4] = {24,26,28,30};
 
 // Motor 1 pins
 int In1A=43; //Digital
@@ -122,6 +125,12 @@ long tofDistancesReal[4]; // Used for omniwheel drive where the 'front' is rotat
 //     [0]
 // [3]     [1]
 //     [2]
+VL53L0X loadSensors[2];
+int loadToFPins[2] = {6, 7}; // XSHUT pins for the 2 Load ToF sensors
+long lastLoadToFDistances[2];
+long loadToFDistances[2]; // distances from Load ToF sensors
+
+int servos[2] = {8, 9};
 
 char val = 0;
 unsigned long commandDuration = 0;
