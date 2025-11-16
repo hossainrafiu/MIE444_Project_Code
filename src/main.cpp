@@ -74,10 +74,11 @@ void checks()
   // check for command timeout
   pingToF(3);
   if ((commandTimeout > 0 && (millis() - lastCommandTime >= commandTimeout))
-  || (tofDistances[0] < 50 && carefulForward)
+  || (tofDistances[0] < 70 && carefulForward)
   || (tofDistances[1] < 30)
   || (tofDistances[3] < 30))
   {
+    // transmitToFData();
     halt();
     commandTimeout = 0;
   }
@@ -199,7 +200,7 @@ void controlFromSerial()
       orient();
     }
     
-    // PARALLEL SENSOR ADJUSTMENT
+    // PARALLEL SENSOR ADJUSTMENT #DEPRECATED
     else if (val == 'j')
     {
       int direction = command.charAt(start + 2) - '0';
@@ -555,12 +556,14 @@ void pingSensors(int numTimes = 5)
 
 void pingToF(int numTimes = 5)
 {
+  int calibration[4] = {20, 10, 10, 0};
   for (int i=0; i<4; i++){
     tofDistancesReal[i] = sensors[i].readRangeContinuousMillimeters();
     for (int j=1; j<numTimes; j++){
       tofDistancesReal[i] += sensors[i].readRangeContinuousMillimeters();
     }
     tofDistancesReal[i] /= (numTimes);
+    tofDistancesReal[i] -= calibration[i];
     if (sensors[i].timeoutOccurred()) {
       Serial1.print("TIMEOUT");
       tofDistancesReal[i] = 8000;
