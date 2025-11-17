@@ -5,9 +5,9 @@ bool verboseSensors = false;
 bool remoteControl = true;
 
 void setup() {
-  Serial1.begin(115200);
+  Serial1.begin(9600);
   if (!remoteControl) Serial1.println("Starting....");
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.println("Starting....");
   pinMode(In1A, OUTPUT);
   pinMode(In2A, OUTPUT);
@@ -121,12 +121,14 @@ int end = 0;
 void controlFromSerial()
 {
   // Serial.println("Checking serial...");
+  // Serial.println("Checking serial...");
   checks();
   if (Serial1.available())
   {
     command = Serial1.readStringUntil('\n');
 
     if (!remoteControl) Serial1.println("Received command: " + command);
+    Serial.println("Received command: " + command);
     Serial.println("Received command: " + command);
     
     // COMMAND PARSING
@@ -287,6 +289,7 @@ void controlFromSerial()
     {
       Serial1.println("Unknown command: " + String(val));
     }
+  if (val != 0 && val != 'p' && val != 'u' && val != 'v')
   if (val != 0 && val != 'p' && val != 'u' && val != 'v')
     {
       Serial1.println("[+]");
@@ -640,6 +643,7 @@ void pingLoadToF(int numTimes = 5)
     lastLoadToFDistances[i] = loadToFDistances[i];
   }
   
+  
   int calibration[2] = {0, 0};
 
   long measurement = loadSensorTop.readRangeContinuousMillimeters();
@@ -853,6 +857,9 @@ void transmitLoadToFData(){
   buffer += String(loadToFDistances[0]);
   buffer += ",";
   buffer += String(loadToFDistances[1]);
+  buffer += String(loadToFDistances[0]);
+  buffer += ",";
+  buffer += String(loadToFDistances[1]);
   buffer += "]";
   Serial1.println(buffer);
 }
@@ -866,6 +873,7 @@ void transmitSensorData(){
   }
   buffer += String(frontDirection);
   buffer += "]";
+  Serial.println(buffer);
   Serial.println(buffer);
   Serial1.println(buffer);
 }

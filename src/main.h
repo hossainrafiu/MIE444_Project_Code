@@ -1,7 +1,9 @@
 #include <NewPing.h>
 #include <VL53L0X.h>
 #include <VL53L1X.h>
+#include <VL53L1X.h>
 #include <Wire.h>
+#include <Servo.h>
 #include <Servo.h>
 
 #define MAX_DISTANCE 200
@@ -36,6 +38,7 @@ void transmitToFData();
 void transmitLoadToFData();
 void blinkLED(int times, int delayTime);
 void orient();
+void actuateServo(int servo, int angle);
 void actuateServo(int servo, int angle);
 
 // Starting from front left, going clockwise
@@ -117,6 +120,7 @@ int EnM4B=10; //PWM
 
 // int speeds[12]={93,86,77,75,159,154,150,153,225,225,225,225};
 float speeds[12]={75.0,50.0,55.0,70.0,159.0,154.0,150.0,153.0,225.0,225.0,225.0,225.0};
+float speeds[12]={75.0,50.0,55.0,70.0,159.0,154.0,150.0,153.0,225.0,225.0,225.0,225.0};
 int shift=0;
 
 VL53L0X sensors[4];
@@ -128,6 +132,8 @@ long tofDistancesReal[4]; // Used for omniwheel drive where the 'front' is rotat
 //     [0]
 // [3]     [1]
 //     [2]
+VL53L0X loadSensorTop; // Pin 6
+VL53L1X loadSensorBottom; // Pin 7
 VL53L0X loadSensorTop; // Pin 6
 VL53L1X loadSensorBottom; // Pin 7
 int loadToFPins[2] = {6, 7}; // XSHUT pins for the 2 Load ToF sensors
