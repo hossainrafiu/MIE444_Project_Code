@@ -5,9 +5,9 @@ bool verboseSensors = false;
 bool remoteControl = true;
 
 void setup() {
-  Serial1.begin(9600);
+  Serial1.begin(115200);
   if (!remoteControl) Serial1.println("Starting....");
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println("Starting....");
   pinMode(In1A, OUTPUT);
   pinMode(In2A, OUTPUT);
@@ -674,9 +674,9 @@ void centering(){
   int lastMeasure1 = 8000;
   int lastMeasure2 = 8000;
   int lastMeasure3 = 8000;
-  for (int count = 0; count < 40; count++){
+  for (int count = 0; count < 100; count++){
     halt();
-    rotateCW(1.3);
+    rotateCW();
     delay(200);
     halt();
     delay(200);
@@ -688,7 +688,7 @@ void centering(){
     if (tofDistances[0] > 300 and tofDistances[1] < 150){
       if (lastMeasure1 > lastMeasure2 && lastMeasure3 > lastMeasure2){
         halt();
-        rotateCCW(1.3);
+        rotateCCW();
         delay(200);
         halt();
         return;
