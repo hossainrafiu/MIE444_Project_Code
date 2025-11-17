@@ -32,37 +32,41 @@ void setup() {
   servos[0].write(120); // Gripper Up position
   servos[1].write(5); // Gripper Open position
 
-  Wire.begin();
   resetToF(false);
   digitalWrite(LEDPin[0], HIGH);
 }
 
 void resetToF(bool initializeLoadSensors){
+  halt();
+  delay(500);
   // Blink LEDs to indicate initialization
   for (int i=0; i<4; i++){
     digitalWrite(LEDPin[0], HIGH);
     delay(10);
     digitalWrite(LEDPin[0], LOW);
   }
-  for (int i=0; i<4; i++){
-    pinMode(tofPins[i], OUTPUT);
-    digitalWrite(tofPins[i], LOW); // Disable all sensors
-  }
-  for (int i=0; i<2; i++){
-    pinMode(loadToFPins[i], OUTPUT);
-    digitalWrite(loadToFPins[i], LOW); // Disable all load sensors
-  }
-  delay(1000);
-  for (int i=0; i<4; i++){
-    if (!remoteControl) Serial1.println("Initializing sensor " + String(i));
-    Serial.println("Initializing sensor " + String(i));
-    pinMode(tofPins[i], INPUT);
-    delay(100); // Wait for sensor to boot
-    sensors[i].setTimeout(500);
-    sensors[i].init();
-    sensors[i].setMeasurementTimingBudget(20000);
-    sensors[i].startContinuous();
-    sensors[i].setAddress(0x30 + i);
+    Wire.begin();
+    for (int i=0; i<4; i++){
+      pinMode(tofPins[i], OUTPUT);
+      digitalWrite(tofPins[i], LOW); // Disable all sensors
+    }
+    for (int i=0; i<2; i++){
+      pinMode(loadToFPins[i], OUTPUT);
+      digitalWrite(loadToFPins[i], LOW); // Disable all load sensors
+    }
+    delay(500);
+    if (!initializeLoadSensors){
+      for (int i=0; i<4; i++){
+        if (!remoteControl) Serial1.println("Initializing sensor " + String(i));
+        Serial.println("Initializing sensor " + String(i));
+        pinMode(tofPins[i], INPUT);
+        delay(100); // Wait for sensor to boot
+        sensors[i].setTimeout(500);
+        sensors[i].init();
+        sensors[i].setMeasurementTimingBudget(20000);
+        sensors[i].startContinuous();
+        sensors[i].setAddress(0x30 + i);
+      }
   }
   if (initializeLoadSensors) {
     if (!remoteControl) Serial1.println("Initializing load sensor on top");
@@ -102,7 +106,7 @@ void serialTest(){
 void checks()
 {
   // check for command timeout
-  pingToF(3);
+  // pingToF(3);
   if ((commandTimeout > 0 && (millis() - lastCommandTime >= commandTimeout))
   // || (tofDistances[0] < 70 && carefulForward)
   // || (tofDistances[1] < 30)
@@ -250,12 +254,14 @@ void controlFromSerial()
       actuateServo(servo, pwnPosition);
     }
     else if (val == 'v'){
-      pinMode(31, OUTPUT);
-      digitalWrite(31, HIGH);
-      // Serial.println("Ping Load TOF");
-      // pingLoadToF();
-      // Serial.println("Transmit Load TOF");
-      // transmitLoadToFData();
+      if (!loadSensorsInitialized) {
+        resetToF(true);
+        loadSensorsInitialized = true;
+      }
+      Serial.println("Ping Load TOF");
+      pingLoadToF();
+      Serial.println("Transmit Load TOF");
+      transmitLoadToFData();
     }
 
     else if (val == 'z'){
@@ -599,12 +605,30 @@ void pingSensors(int numTimes = 5)
 
 void pingToF(int numTimes = 5)
 {
+  if (loadSensorsInitialized == true){
+    resetToF(false);
+    loadSensorsInitialized = false;
+  }
   int calibration[4] = {20, 10, 10, 0};
   for (int i=0; i<4; i++){
     long measurement = sensors[i].readRangeContinuousMillimeters();
+    Serial.println("ToF Sensor " + String(i) + " Measurement: " + String(measurement));
+    if (measurement > 10000) {
+      // ToF Timed out
+      resetToF(false);
+      pingToF(numTimes);
+      return;
+    }
     tofDistancesReal[i] = measurement;
     for (int j=1; j<numTimes; j++){
       measurement = sensors[i].readRangeContinuousMillimeters();
+      // Serial.println("ToF Sensor " + String(i) + " Measurement: " + String(measurement));
+      if (measurement > 10000) {
+        // ToF Timed out
+        resetToF(false);
+        pingToF(numTimes);
+        return;
+      }
       tofDistancesReal[i] += measurement;
     }
     tofDistancesReal[i] /= (numTimes);
@@ -644,10 +668,22 @@ void pingLoadToF(int numTimes = 5)
 
   long measurement = loadSensorTop.readRangeContinuousMillimeters();
   Serial.println("Load ToF Top Measurement: " + String(measurement));
+  if (measurement > 10000) {
+    // ToF Timed out
+    resetToF(true);
+    pingLoadToF(numTimes);
+    return;
+  }
   loadToFDistances[0] = measurement;
   for (int j=1; j<numTimes; j++){
     measurement = loadSensorTop.readRangeContinuousMillimeters();
     Serial.println("Load ToF Top Measurement: " + String(measurement));
+    if (measurement > 10000) {
+      // ToF Timed out
+      resetToF(true);
+      pingLoadToF(numTimes);
+      return;
+    }
     loadToFDistances[0] += measurement;
   }
   loadToFDistances[0] /= (numTimes);
@@ -655,10 +691,22 @@ void pingLoadToF(int numTimes = 5)
 
   measurement = loadSensorBottom.readRangeContinuousMillimeters();
   Serial.println("Load ToF Bottom Measurement: " + String(measurement));
+  if (measurement > 10000) {
+    // ToF Timed out
+    resetToF(true);
+    pingLoadToF(numTimes);
+    return;
+  }
   loadToFDistances[1] = measurement;
   for (int j=1; j<numTimes; j++){
     long measurement = loadSensorBottom.readRangeContinuousMillimeters();
     Serial.println("Load ToF Bottom Measurement: " + String(measurement));
+    if (measurement > 10000) {
+      // ToF Timed out
+      resetToF(true);
+      pingLoadToF(numTimes);
+      return;
+    }
     loadToFDistances[1] += measurement;
   }
   loadToFDistances[1] /= (numTimes);
