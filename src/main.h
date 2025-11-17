@@ -1,9 +1,12 @@
 #include <NewPing.h>
 #include <VL53L0X.h>
+#include <VL53L1X.h>
 #include <Wire.h>
+#include <Servo.h>
 
 #define MAX_DISTANCE 200
 
+void resetToF(bool initializeLoadSensors = true);
 void additionalSetup();
 void manualControl();
 void serialTest();
@@ -33,7 +36,7 @@ void transmitToFData();
 void transmitLoadToFData();
 void blinkLED(int times, int delayTime);
 void orient();
-void actuateServo(int servoIndex, int angle);
+void actuateServo(int servo, int angle);
 
 // Starting from front left, going clockwise
 // Ultrasonic Sensor 1 pins
@@ -113,7 +116,7 @@ int In4B=45; //Digital
 int EnM4B=10; //PWM
 
 // int speeds[12]={93,86,77,75,159,154,150,153,225,225,225,225};
-float speeds[12]={95.0,70.0,75.0,90.0,159.0,154.0,150.0,153.0,225.0,225.0,225.0,225.0};
+float speeds[12]={75.0,50.0,55.0,70.0,159.0,154.0,150.0,153.0,225.0,225.0,225.0,225.0};
 int shift=0;
 
 VL53L0X sensors[4];
@@ -125,12 +128,16 @@ long tofDistancesReal[4]; // Used for omniwheel drive where the 'front' is rotat
 //     [0]
 // [3]     [1]
 //     [2]
-VL53L0X loadSensors[2];
+VL53L0X loadSensorTop; // Pin 6
+VL53L1X loadSensorBottom; // Pin 7
 int loadToFPins[2] = {6, 7}; // XSHUT pins for the 2 Load ToF sensors
 long lastLoadToFDistances[2];
 long loadToFDistances[2]; // distances from Load ToF sensors
 
-int servos[2] = {8, 9};
+Servo servos[2];
+int servoPins[2] = {8, 9}; // 8 - base, 9 - gripper
+int MAX_SERVO_ANGLE[2] = {120, 42};
+int MIN_SERVO_ANGLE[2] = {10, 0};
 
 char val = 0;
 unsigned long commandDuration = 0;
