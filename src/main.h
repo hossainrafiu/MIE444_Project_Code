@@ -153,5 +153,5 @@ bool OMNIWHEELDRIVE = true;
 int frontDirection = 0; // 0: front, 1: right, 2: back, 3: left
 
 // For control over serial
-long lastCommandTime = 0;
-long commandTimeout = 5000; // milliseconds
+unsigned long lastCommandTime = 0;
+unsigned long commandTimeout = 5000; // milliseconds

@@ -93,7 +93,7 @@ void loop(){
 
 void serialTest(){
   if (Serial1.available()){
-    char command = Serial1.read();
+    Serial1.read();
     pingToF(1);
     transmitToFData();
   }
@@ -307,7 +307,7 @@ void controlFromSerial()
 // Assuming:
 // In1:HIGH and In2:LOW -> CCW
 
-void forward(float speedDivisor = 1.0)
+void forward(float speedDivisor)
 {
   switch (frontDirection)
   {
@@ -349,7 +349,7 @@ void forward(float speedDivisor = 1.0)
   // analogWrite(EnM4B, speeds[3+shift]);
 
 }
-void backwards(float speedDivisor = 1.0)
+void backwards(float speedDivisor)
 {
   switch (frontDirection)
   {
@@ -386,7 +386,7 @@ void backwards(float speedDivisor = 1.0)
   // digitalWrite(In4B, LOW); 
   // analogWrite(EnM4B, speeds[3+shift]);
 }
-void left(float speedDivisor = 1.0)
+void left(float speedDivisor)
 {
   switch (frontDirection)
   {
@@ -423,7 +423,7 @@ void left(float speedDivisor = 1.0)
   // digitalWrite(In4B, LOW); 
   // analogWrite(EnM4B, speeds[3+shift]);
 }
-void right(float speedDivisor = 1.0)
+void right(float speedDivisor)
 {
   switch (frontDirection)
   {
@@ -460,7 +460,7 @@ void right(float speedDivisor = 1.0)
   // digitalWrite(In4B, HIGH); 
   // analogWrite(EnM4B, speeds[3+shift]);
 }
-void frontRight(float speedDivisor = 1.0)
+void frontRight(float speedDivisor)
 {
   digitalWrite(In1A, HIGH); 
   digitalWrite(In2A, LOW); 
@@ -478,7 +478,7 @@ void frontRight(float speedDivisor = 1.0)
   digitalWrite(In4B, HIGH); 
   analogWrite(EnM4B, speeds[3+shift]/speedDivisor);
 }
-void frontLeft(float speedDivisor = 1.0)
+void frontLeft(float speedDivisor)
 {
   digitalWrite(In1A, LOW); 
   digitalWrite(In2A, LOW); 
@@ -496,7 +496,7 @@ void frontLeft(float speedDivisor = 1.0)
   digitalWrite(In4B, LOW); 
   analogWrite(EnM4B, 0);
 }
-void backRight(float speedDivisor = 1.0)
+void backRight(float speedDivisor)
 {
   digitalWrite(In1A, LOW); 
   digitalWrite(In2A, LOW); 
@@ -514,7 +514,7 @@ void backRight(float speedDivisor = 1.0)
   digitalWrite(In4B, LOW); 
   analogWrite(EnM4B, 0);
 }
-void backLeft(float speedDivisor = 1.0)
+void backLeft(float speedDivisor)
 {
   digitalWrite(In1A, LOW); 
   digitalWrite(In2A, HIGH); 
@@ -532,7 +532,7 @@ void backLeft(float speedDivisor = 1.0)
   digitalWrite(In4B, LOW); 
   analogWrite(EnM4B, speeds[3+shift]/speedDivisor);
 }
-void rotateCW(float speedDivisor = 1.0)
+void rotateCW(float speedDivisor)
 {
   digitalWrite(In1A, HIGH); 
   digitalWrite(In2A, LOW); 
@@ -550,7 +550,7 @@ void rotateCW(float speedDivisor = 1.0)
   digitalWrite(In4B, LOW); 
   analogWrite(EnM4B, speeds[3]/speedDivisor);
 }
-void rotateCCW(float speedDivisor = 1.0)
+void rotateCCW(float speedDivisor)
 {
   digitalWrite(In1A, LOW); 
   digitalWrite(In2A, HIGH); 
@@ -587,7 +587,7 @@ void halt()
   analogWrite(EnM4B, 255);
 }
 
-void pingSensors(int numTimes = 5)
+void pingSensors(int numTimes)
 {
     for (int i = 0; i < 8; i++)
     {
@@ -600,7 +600,7 @@ void pingSensors(int numTimes = 5)
     }
 }
 
-void pingToF(int numTimes = 5)
+void pingToF(int numTimes)
 {
   int calibration[4] = {20, 10, 10, 0};
   for (int i=0; i<4; i++){
@@ -637,7 +637,7 @@ void pingFrontToF()
   tofDistances[0] = tofDistancesReal[frontDirection];
 }
 
-void pingLoadToF(int numTimes = 5)
+void pingLoadToF(int numTimes)
 {
   for (int i = 0 ; i < 2 ; i++){
     lastLoadToFDistances[i] = loadToFDistances[i];
@@ -717,7 +717,7 @@ void centering(){
 
 void orient() {
   rotateCW();
-  int max = 0;
+  unsigned long max = 0;
   for (int i = 0; i <= 26; i++) {
     pingToF();
     if (sensorDistances[0] > max) {
@@ -735,7 +735,7 @@ void orient() {
   }
 }
 
-void sensorChangeRotation(int sensorIndex, unsigned long delayTime=100){
+void sensorChangeRotation(int sensorIndex, unsigned long delayTime){
   // using lastSensorDistances and sensorDistances
   // check if they are close to a wall and rotate based on change (in the delay)
 
