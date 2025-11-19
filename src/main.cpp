@@ -32,13 +32,14 @@ void setup() {
   servos[0].write(120); // Gripper Up position
   servos[1].write(5); // Gripper Open position
 
-  Wire.begin();
   resetToF(false);
   digitalWrite(LEDPin[0], HIGH);
 }
 
 void resetToF(bool initializeLoadSensors){
   // Blink LEDs to indicate initialization
+  Wire.end();
+  
   for (int i=0; i<4; i++){
     digitalWrite(LEDPin[0], HIGH);
     delay(10);
@@ -52,7 +53,11 @@ void resetToF(bool initializeLoadSensors){
     pinMode(loadToFPins[i], OUTPUT);
     digitalWrite(loadToFPins[i], LOW); // Disable all load sensors
   }
-  delay(1000);
+
+  delay(500);
+  Wire.begin();
+  delay(500);
+
   for (int i=0; i<4 && !initializeLoadSensors; i++){
     if (!remoteControl) Serial1.println("Initializing sensor " + String(i));
     Serial.println("Initializing sensor " + String(i));
@@ -475,6 +480,15 @@ void pingToF(int numTimes)
     }
   }
 
+  bool CAN_RESET_TOF_ON_TIMEOUT = true;
+  // Reset ToFs if any sensor times out (> 60000)
+  if (CAN_RESET_TOF_ON_TIMEOUT){
+    if (tofDistancesReal[0] > 60000 || tofDistancesReal[1] > 60000 || tofDistancesReal[2] > 60000 || tofDistancesReal[3] > 60000){
+      Serial1.println("One or more ToF sensors timed out. Resetting sensors...");
+      resetToF(false);
+    }
+  }
+
   for (int i = 0 ; i < 4 ; i++){
     lastToFDistances[i] = tofDistances[i];
     tofDistances[i] = tofDistancesReal[(i + frontDirection) % 4];
@@ -505,6 +519,15 @@ void pingLoadToF(int numTimes)
   }
   loadToFDistances[1] /= (numTimes);
   loadToFDistances[1] -= calibration[1];
+
+  bool CAN_RESET_LOAD_TOF_ON_TIMEOUT = true;
+  // Reset Load ToFs if any sensor times out (> 60000)
+  if (CAN_RESET_LOAD_TOF_ON_TIMEOUT){
+    if (loadToFDistances[0] > 60000 || loadToFDistances[1] > 60000){
+      Serial1.println("One or more Load ToF sensors timed out. Resetting sensors...");
+      resetToF(true);
+    }
+  }
 }
 
 void changeFrontDirection(int newFront){
