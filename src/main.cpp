@@ -44,7 +44,7 @@ void resetToF(bool initializeLoadSensors){
     delay(10);
     digitalWrite(LEDPin[0], LOW);
   }
-  for (int i=0; i<4; i++){
+  for (int i=0; i<4 && !initializeLoadSensors; i++){
     pinMode(tofPins[i], OUTPUT);
     digitalWrite(tofPins[i], LOW); // Disable all sensors
   }
@@ -53,7 +53,7 @@ void resetToF(bool initializeLoadSensors){
     digitalWrite(loadToFPins[i], LOW); // Disable all load sensors
   }
   delay(1000);
-  for (int i=0; i<4; i++){
+  for (int i=0; i<4 && !initializeLoadSensors; i++){
     if (!remoteControl) Serial1.println("Initializing sensor " + String(i));
     Serial.println("Initializing sensor " + String(i));
     pinMode(tofPins[i], INPUT);
@@ -91,25 +91,10 @@ void loop(){
   controlFromSerial();
 }
 
-void serialTest(){
-  if (Serial1.available()){
-    Serial1.read();
-    pingToF(1);
-    transmitToFData();
-  }
-}
-
-void checks()
+void commandTimeoutCheck()
 {
   // check for command timeout
-  pingToF(3);
-  if ((commandTimeout > 0 && (millis() - lastCommandTime >= commandTimeout))
-  // || (tofDistances[0] < 70 && carefulForward)
-  // || (tofDistances[1] < 30)
-  // || (tofDistances[3] < 30)
-    )
-  {
-    // transmitToFData();
+  if ((commandTimeout > 0 && (millis() - lastCommandTime >= commandTimeout))){
     halt();
     commandTimeout = 0;
   }
@@ -120,15 +105,12 @@ int start = 0;
 int end = 0;
 void controlFromSerial()
 {
-  // Serial.println("Checking serial...");
-  // Serial.println("Checking serial...");
-  checks();
+  commandTimeoutCheck();
   if (Serial1.available())
   {
     command = Serial1.readStringUntil('\n');
 
     if (!remoteControl) Serial1.println("Received command: " + command);
-    Serial.println("Received command: " + command);
     Serial.println("Received command: " + command);
     
     // COMMAND PARSING
@@ -208,42 +190,11 @@ void controlFromSerial()
         transmitToFData();
       }
     }
-    // PING ULTRASONIC SENSORS
-    else if (val == 'u')
-    {
-      int numTimes = command.substring(start + 2, end).toInt();
-      if (start + 2 >= end){
-        numTimes = 3; // Default to 3 times
-      }
-      pingSensors(numTimes); // number of times to ping
-      transmitSensorData();
-    }
 
     // HALT
     else if (val == 'h')
     {
       halt();
-    }
-    // CENTERING
-    else if (val == 'c')
-    {
-      centering();
-    }
-    // ORIENT
-    else if (val == 'o')
-    {
-      orient();
-    }
-    
-    // PARALLEL SENSOR ADJUSTMENT #DEPRECATED
-    else if (val == 'j')
-    {
-      int direction = command.charAt(start + 2) - '0';
-      if (direction < 0 || direction > 3){
-        Serial1.println("Invalid direction for 'j' command.");
-        return;
-      }
-      parallelSensorAdjustment(direction);
     }
 
     else if (val == 'l'){
@@ -252,12 +203,10 @@ void controlFromSerial()
       actuateServo(servo, pwnPosition);
     }
     else if (val == 'v'){
-      pinMode(31, OUTPUT);
-      digitalWrite(31, HIGH);
-      // Serial.println("Ping Load TOF");
-      // pingLoadToF();
-      // Serial.println("Transmit Load TOF");
-      // transmitLoadToFData();
+      Serial.println("Ping Load TOF");
+      pingLoadToF();
+      Serial.println("Transmit Load TOF");
+      transmitLoadToFData();
     }
 
     else if (val == 'z'){
@@ -273,23 +222,13 @@ void controlFromSerial()
       Serial1.println("Speeds decreased to: " + String(speeds[0]) + ", " + String(speeds[1]) + ", " + String(speeds[2]) + ", " + String(speeds[3]));
     }
     else if (val == 'b'){
-      carefulForward = !carefulForward;
-    }
-    else if (val == '<')
-    {
-      MOVELEFTWHENPOSSIBLE = true;
-      MOVERIGHTWHENPOSSIBLE = false;
-    }
-    else if (val == '>')
-    {
-      MOVERIGHTWHENPOSSIBLE = true;
-      MOVELEFTWHENPOSSIBLE = false;
+      pinMode(31, OUTPUT);
+      digitalWrite(31, HIGH);
     }
     else
     {
       Serial1.println("Unknown command: " + String(val));
     }
-  if (val != 0 && val != 'p' && val != 'u' && val != 'v')
   if (val != 0 && val != 'p' && val != 'u' && val != 'v')
     {
       Serial1.println("[+]");
@@ -330,24 +269,6 @@ void forward(float speedDivisor)
   default:
     break;
   }
-  // frontLeft(sensorReading);
-
-  // digitalWrite(In1A, HIGH); 
-  // digitalWrite(In2A, LOW); 
-  // analogWrite(EnM1A, speeds[0+shift]);
-
-  // digitalWrite(In3A, LOW); 
-  // digitalWrite(In4A, HIGH); 
-  // analogWrite(EnM2A, speeds[1+shift]);
-
-  // digitalWrite(In1B, HIGH); 
-  // digitalWrite(In2B, LOW); 
-  // analogWrite(EnM3B, speeds[2+shift]);
-
-  // digitalWrite(In3B, LOW); 
-  // digitalWrite(In4B, HIGH); 
-  // analogWrite(EnM4B, speeds[3+shift]);
-
 }
 void backwards(float speedDivisor)
 {
@@ -368,23 +289,6 @@ void backwards(float speedDivisor)
   default:
     break;
   }
-  // backRight();
-
-  // digitalWrite(In1A, LOW); 
-  // digitalWrite(In2A, HIGH); 
-  // analogWrite(EnM1A, speeds[0+shift]);
-
-  // digitalWrite(In3A, HIGH); 
-  // digitalWrite(In4A, LOW); 
-  // analogWrite(EnM2A, speeds[1+shift]);
-
-  // digitalWrite(In1B, LOW); 
-  // digitalWrite(In2B, HIGH); 
-  // analogWrite(EnM3B, speeds[2+shift]);
-
-  // digitalWrite(In3B, HIGH); 
-  // digitalWrite(In4B, LOW); 
-  // analogWrite(EnM4B, speeds[3+shift]);
 }
 void left(float speedDivisor)
 {
@@ -405,23 +309,6 @@ void left(float speedDivisor)
   default:
     break;
   }
-  // backLeft();
-
-  // digitalWrite(In1A, LOW); 
-  // digitalWrite(In2A, HIGH); 
-  // analogWrite(EnM1A, speeds[0+shift]);
-
-  // digitalWrite(In3A, LOW); 
-  // digitalWrite(In4A, HIGH); 
-  // analogWrite(EnM2A, speeds[1+shift]);
-
-  // digitalWrite(In1B, HIGH); 
-  // digitalWrite(In2B, LOW); 
-  // analogWrite(EnM3B, speeds[2+shift]);
-
-  // digitalWrite(In3B, HIGH); 
-  // digitalWrite(In4B, LOW); 
-  // analogWrite(EnM4B, speeds[3+shift]);
 }
 void right(float speedDivisor)
 {
@@ -442,29 +329,12 @@ void right(float speedDivisor)
   default:
     break;
   }
-  // frontRight();
-
-  // digitalWrite(In1A, HIGH); 
-  // digitalWrite(In2A, LOW); 
-  // analogWrite(EnM1A, speeds[0+shift]);
-
-  // digitalWrite(In3A, HIGH); 
-  // digitalWrite(In4A, LOW); 
-  // analogWrite(EnM2A, speeds[1+shift]);
-
-  // digitalWrite(In1B, LOW); 
-  // digitalWrite(In2B, HIGH); 
-  // analogWrite(EnM3B, speeds[2+shift]);
-
-  // digitalWrite(In3B, LOW); 
-  // digitalWrite(In4B, HIGH); 
-  // analogWrite(EnM4B, speeds[3+shift]);
 }
 void frontRight(float speedDivisor)
 {
   digitalWrite(In1A, HIGH); 
   digitalWrite(In2A, LOW); 
-  analogWrite(EnM1A, speeds[0+shift]/speedDivisor);
+  analogWrite(EnM1A, speeds[0]/speedDivisor);
 
   digitalWrite(In3A, LOW); 
   digitalWrite(In4A, LOW); 
@@ -476,7 +346,7 @@ void frontRight(float speedDivisor)
 
   digitalWrite(In3B, LOW); 
   digitalWrite(In4B, HIGH); 
-  analogWrite(EnM4B, speeds[3+shift]/speedDivisor);
+  analogWrite(EnM4B, speeds[3]/speedDivisor);
 }
 void frontLeft(float speedDivisor)
 {
@@ -486,11 +356,11 @@ void frontLeft(float speedDivisor)
 
   digitalWrite(In3A, LOW); 
   digitalWrite(In4A, HIGH); 
-  analogWrite(EnM2A, speeds[1+shift]/speedDivisor);
+  analogWrite(EnM2A, speeds[1]/speedDivisor);
 
   digitalWrite(In1B, HIGH); 
   digitalWrite(In2B, LOW); 
-  analogWrite(EnM3B, speeds[2+shift]/speedDivisor);
+  analogWrite(EnM3B, speeds[2]/speedDivisor);
 
   digitalWrite(In3B, LOW); 
   digitalWrite(In4B, LOW); 
@@ -504,11 +374,11 @@ void backRight(float speedDivisor)
 
   digitalWrite(In3A, HIGH); 
   digitalWrite(In4A, LOW); 
-  analogWrite(EnM2A, speeds[1+shift]/speedDivisor);
+  analogWrite(EnM2A, speeds[1]/speedDivisor);
 
   digitalWrite(In1B, LOW); 
   digitalWrite(In2B, HIGH); 
-  analogWrite(EnM3B, speeds[2+shift]/speedDivisor);
+  analogWrite(EnM3B, speeds[2]/speedDivisor);
 
   digitalWrite(In3B, LOW); 
   digitalWrite(In4B, LOW); 
@@ -518,7 +388,7 @@ void backLeft(float speedDivisor)
 {
   digitalWrite(In1A, LOW); 
   digitalWrite(In2A, HIGH); 
-  analogWrite(EnM1A, speeds[0+shift]/speedDivisor);
+  analogWrite(EnM1A, speeds[0]/speedDivisor);
 
   digitalWrite(In3A, LOW); 
   digitalWrite(In4A, LOW); 
@@ -530,7 +400,7 @@ void backLeft(float speedDivisor)
 
   digitalWrite(In3B, HIGH); 
   digitalWrite(In4B, LOW); 
-  analogWrite(EnM4B, speeds[3+shift]/speedDivisor);
+  analogWrite(EnM4B, speeds[3]/speedDivisor);
 }
 void rotateCW(float speedDivisor)
 {
@@ -587,19 +457,6 @@ void halt()
   analogWrite(EnM4B, 255);
 }
 
-void pingSensors(int numTimes)
-{
-    for (int i = 0; i < 8; i++)
-    {
-        pingTimes[i] = sonars[i].ping_median(numTimes);
-        sensorDistancesReal[i] = pingTimes[i] / 5.73; // Convert to mm
-    }
-
-    for (int i = 0 ; i < 8 ; i++){
-      sensorDistances[i] = sensorDistancesReal[(i + frontDirection*2) % 8];
-    }
-}
-
 void pingToF(int numTimes)
 {
   int calibration[4] = {20, 10, 10, 0};
@@ -624,199 +481,30 @@ void pingToF(int numTimes)
   }
 }
 
-void pingFrontToF()
-{
-  tofDistancesReal[frontDirection] = sensors[frontDirection].readRangeContinuousMillimeters();
-  tofDistancesReal[frontDirection] += sensors[frontDirection].readRangeContinuousMillimeters();
-  tofDistancesReal[frontDirection] += sensors[frontDirection].readRangeContinuousMillimeters();
-  tofDistancesReal[frontDirection] /= 3;
-  if (sensors[frontDirection].timeoutOccurred()) {
-    Serial1.print("TIMEOUT");
-    tofDistancesReal[frontDirection] = 8000;
-  }
-  tofDistances[0] = tofDistancesReal[frontDirection];
-}
-
 void pingLoadToF(int numTimes)
 {
+  if (loadSensorsInitialized == false){
+    resetToF(true);
+    loadSensorsInitialized = true;
+  }
   for (int i = 0 ; i < 2 ; i++){
     lastLoadToFDistances[i] = loadToFDistances[i];
   }
-  
-  
   int calibration[2] = {0, 0};
 
-  long measurement = loadSensorTop.readRangeContinuousMillimeters();
-  Serial.println("Load ToF Top Measurement: " + String(measurement));
-  loadToFDistances[0] = measurement;
+  loadToFDistances[0] = loadSensorTop.readRangeContinuousMillimeters();
   for (int j=1; j<numTimes; j++){
-    measurement = loadSensorTop.readRangeContinuousMillimeters();
-    Serial.println("Load ToF Top Measurement: " + String(measurement));
-    loadToFDistances[0] += measurement;
+    loadToFDistances[0] += loadSensorTop.readRangeContinuousMillimeters();
   }
   loadToFDistances[0] /= (numTimes);
   loadToFDistances[0] -= calibration[0];
 
-  measurement = loadSensorBottom.readRangeContinuousMillimeters();
-  Serial.println("Load ToF Bottom Measurement: " + String(measurement));
-  loadToFDistances[1] = measurement;
+  loadToFDistances[1] = loadSensorBottom.readRangeContinuousMillimeters();
   for (int j=1; j<numTimes; j++){
-    long measurement = loadSensorBottom.readRangeContinuousMillimeters();
-    Serial.println("Load ToF Bottom Measurement: " + String(measurement));
-    loadToFDistances[1] += measurement;
+    loadToFDistances[1] += loadSensorBottom.readRangeContinuousMillimeters();
   }
   loadToFDistances[1] /= (numTimes);
   loadToFDistances[1] -= calibration[1];
-}
-
-void centering(){
-  if (verboseConsole) Serial1.println("Centering rover...");
-  int lastMeasure1 = 8000;
-  int lastMeasure2 = 8000;
-  int lastMeasure3 = 8000;
-  for (int count = 0; count < 100; count++){
-    halt();
-    rotateCW();
-    delay(200);
-    halt();
-    delay(200);
-    pingToF();
-    lastMeasure3 = lastMeasure2;
-    lastMeasure2 = lastMeasure1;
-    lastMeasure1 = tofDistances[1];
-    if (verboseConsole) Serial1.println("M1: " + String(lastMeasure1) + " M2: " + String(lastMeasure2) + " M3: " + String(lastMeasure3));
-    if (tofDistances[0] > 300 and tofDistances[1] < 150){
-      if (lastMeasure1 > lastMeasure2 && lastMeasure3 > lastMeasure2){
-        halt();
-        rotateCCW();
-        delay(200);
-        halt();
-        return;
-      }
-    }
-  }
-  // If centering fails, rotate until two corners are detected (so we are facing a corner)
-  // rotate 45 degrees so we are facing a corridor
-  // if (verboseConsole) Serial1.println("Centering with corners...");
-  // while(true){
-  //   halt();
-  //   rotateCW();
-  //   delay(150);
-  //   halt();
-  //   delay(200);
-  //   pingToF();
-  //   if (tofDistances[0] < 200 && tofDistances[1] < 200 && (tofDistances[0] - tofDistances[1]) < 50){
-  //     halt();
-  //     rotateCW();
-  //     delay(500);
-  //     halt();
-  //     return;
-  //   }
-  // }
-}
-
-void orient() {
-  rotateCW();
-  unsigned long max = 0;
-  for (int i = 0; i <= 26; i++) {
-    pingToF();
-    if (sensorDistances[0] > max) {
-      max = sensorDistances[0];
-    }
-    delay(100);
-  }
-  for (int i = 0; i <= 26; i++) {
-    pingToF();
-    if (max * 0.95 < sensorDistances[0]) {
-      halt();
-      break;
-    }
-    delay(100);
-  }
-}
-
-void sensorChangeRotation(int sensorIndex, unsigned long delayTime){
-  // using lastSensorDistances and sensorDistances
-  // check if they are close to a wall and rotate based on change (in the delay)
-
-  if (lastSensorDistances[sensorIndex] < 150 && sensorDistances[sensorIndex] < 150){
-
-    int change = sensorDistances[sensorIndex] - lastSensorDistances[sensorIndex];
-    if (verboseSensors) Serial1.println("Sensor " + String(sensorIndex) + " change: " + String(change));
-
-    if ((change < 0 && sensorIndex==2) || (change > 0 && sensorIndex==6)){
-      // getting closer to wall, rotate CCW
-      if (verboseSensors) Serial1.println("Rotating CCW to avoid wall.");
-      halt();
-      rotateCCW();
-      delay(delayTime);
-      halt();
-    }
-
-    else if ((change > 0 && sensorIndex==2) || (change < 0 && sensorIndex==6)){
-      // getting away from wall, rotate CW
-      if (verboseSensors) Serial1.println("Rotating CW to avoid wall.");
-      halt();
-      rotateCW();
-      delay(delayTime);
-      halt();
-    }
-  }
-
-}
-
-void parallelSensorAdjustment(int direction){
-  // direction: 0 = front, 1 = right, 2 = back, 3 = left
-  // Ultrasonic sensor orientations
-  //       [0][1]
-  //   [7]        [2]
-  //   [6]        [3]
-  //       [5][4]
-  int sensor1, sensor2;
-  if (direction == 0){
-    sensor1 = 7;
-    sensor2 = 2;
-  }
-  else if (direction == 1){
-    sensor1 = 1;
-    sensor2 = 4;
-  }
-  else if (direction == 2){
-    sensor1 = 3;
-    sensor2 = 6;
-  }
-  else if (direction == 3){
-    sensor1 = 5;
-    sensor2 = 0;
-  }
-  int diff = sensorDistances[sensor1] - sensorDistances[sensor2];
-  if (verboseConsole) Serial1.println("Parallel adjustment diff: " + String(diff));
-  if (abs(diff) > 0 && abs(diff) < 100 && tofDistances[direction] < 100){
-    unsigned long delayTime = abs(diff) * 5; // adjust delay time based on difference
-    if (diff > 0){
-      // sensor1 is farther than sensor2, rotate CW
-      if (verboseConsole) Serial1.println("Rotating CW for parallel adjustment.");
-      halt();
-      rotateCW(1.2);
-      delay(delayTime);
-      halt();
-    }
-    else{
-      // sensor2 is farther than sensor1, rotate CCW
-      if (verboseConsole) Serial1.println("Rotating CCW for parallel adjustment.");
-      halt();
-      rotateCCW(1.2);
-      delay(delayTime);
-      halt();
-    }
-    pingSensors(); // update readings after adjustment
-    delay(100);
-    if (abs(sensorDistances[sensor1] - sensorDistances[sensor2]) > 20 &&
-        abs(sensorDistances[sensor1] - sensorDistances[sensor2]) < 100){
-      if (verboseConsole) Serial1.println("Further parallel adjustment needed.");
-      parallelSensorAdjustment(direction); // recursive call if still not parallel
-    }
-  }
 }
 
 void changeFrontDirection(int newFront){
@@ -826,7 +514,7 @@ void changeFrontDirection(int newFront){
   }
   frontDirection = newFront % 4;
   if (verboseConsole) Serial1.println("Front direction changed to: " + String(frontDirection));
-  pingSensors();
+  pingToF();
   delay(100);
   
   for (int i = 0 ; i < 4 ; i++){
@@ -864,36 +552,13 @@ void transmitLoadToFData(){
   Serial1.println(buffer);
 }
 
-void transmitSensorData(){
-  // Transmit sensor distances over Serial1 in a comma-separated format
-  String buffer = "[";
-  for (int i = 0; i < 8; i++){
-    buffer += String(sensorDistancesReal[i]);
-    buffer += ",";
-  }
-  buffer += String(frontDirection);
-  buffer += "]";
-  Serial.println(buffer);
-  Serial.println(buffer);
-  Serial1.println(buffer);
-}
-
-void blinkLED(int times, int delayTime){
-  for (int i=0; i<times; i++){
-    digitalWrite(LEDPin[0], HIGH);
-    delay(delayTime);
-    digitalWrite(LEDPin[0], LOW);
-    delay(delayTime);
-  }
-}
-
 void actuateServo(int servo, int angle){
   if (servo < 0 || servo >= 2){
     Serial1.println("Invalid servo index: " + String(servo));
     return;
   }
   if (angle < MIN_SERVO_ANGLE[servo] || angle > MAX_SERVO_ANGLE[servo]){
-    Serial1.println("Invalid servo angle: " + String(angle));
+    Serial1.println("Invalid servo angle: " + String(angle) + " limit: [" + String(MIN_SERVO_ANGLE[servo]) + ", " + String(MAX_SERVO_ANGLE[servo]) + "]" );
     return;
   }
   servos[servo].write(angle);
