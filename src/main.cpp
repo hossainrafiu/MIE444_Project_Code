@@ -55,7 +55,7 @@ void resetToF(bool initializeLoadSensors){
   }
 
   delay(500);
-  Wire.begin(50000);
+  Wire.begin();
   delay(500);
 
   for (int i=0; i<4 && !initializeLoadSensors; i++){
