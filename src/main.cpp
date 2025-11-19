@@ -180,12 +180,12 @@ void controlFromSerial()
     {
       int numTimes = command.substring(start + 2, end).toInt();
       if (start + 2 >= end){
-        transmitToFData();
+        pingToF();
       }
       else{
         pingToF(numTimes);
-        transmitToFData();
       }
+      transmitToFData();
     }
 
     // HALT
@@ -548,9 +548,6 @@ void transmitToFData(){
 void transmitLoadToFData(){
   // Transmit load sensor distances over Serial1 in a comma-separated format
   String buffer = "[";
-  buffer += String(loadToFDistances[0]);
-  buffer += ",";
-  buffer += String(loadToFDistances[1]);
   buffer += String(loadToFDistances[0]);
   buffer += ",";
   buffer += String(loadToFDistances[1]);
