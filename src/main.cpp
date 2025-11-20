@@ -1,3 +1,32 @@
+// #include <VL53L1X.h>
+
+// VL53L1X sensor;
+
+// void setup() {
+//   Serial.begin(115200);
+//   Wire.begin();
+//   sensor.setTimeout(500);
+//   if (!sensor.init())
+//   {
+//     Serial.println("Failed to detect and initialize sensor!");
+//     while (1);
+//   }
+//   sensor.setDistanceMode(VL53L1X::DistanceMode::Short);
+//   Serial.println("ROI Center: " + String(sensor.getROICenter()));
+//   sensor.setROISize(4, 4);
+//   uint8_t roiwidth, roiheight;
+//   sensor.getROISize(&roiwidth, &roiheight);
+//   Serial.println("ROI Width: " + String(roiwidth) + " Height: " + String(roiheight));
+//   sensor.setMeasurementTimingBudget(50000);
+//   sensor.startContinuous(100);
+// }
+
+// void loop() {
+//   Serial.print("Distance (mm): ");
+//   Serial.println(sensor.read());
+//   delay(100);
+// }
+
 #include <main.h>
 
 bool verboseConsole = false;
@@ -65,22 +94,31 @@ void resetToF(bool initializeLoadSensors){
     delay(100); // Wait for sensor to boot
     sensors[i].setTimeout(500);
     sensors[i].init();
-    sensors[i].setMeasurementTimingBudget(50000);
+    sensors[i].setMeasurementTimingBudget(20000);
     sensors[i].startContinuous();
     sensors[i].setAddress(0x30 + i);
   }
   if (initializeLoadSensors) {
-    for (int i=0; i<2 && initializeLoadSensors; i++){
-      if (!remoteControl) Serial1.println("Initializing Load sensor " + String(i));
-      Serial.println("Initializing Load sensor " + String(i));
-      pinMode(loadToFPins[i], INPUT);
-      delay(100); // Wait for sensor to boot
-      loadSensors[i].setTimeout(500);
-      loadSensors[i].init();
-      loadSensors[i].setMeasurementTimingBudget(50000);
-      loadSensors[i].startContinuous();
-      loadSensors[i].setAddress(0x35 + i);
-    }
+    if (!remoteControl) Serial1.println("Initializing Load sensor Top");
+    Serial.println("Initializing Load sensor Top");
+    pinMode(loadToFPins[0], INPUT);
+    delay(100); // Wait for sensor to boot
+    loadSensorTop.setTimeout(500);
+    loadSensorTop.init();
+    loadSensorTop.setMeasurementTimingBudget(50000);
+    loadSensorTop.startContinuous();
+    loadSensorTop.setAddress(0x35);
+
+    if (!remoteControl) Serial1.println("Initializing Load sensor Bottom");
+    Serial.println("Initializing Load sensor Bottom");
+    pinMode(loadToFPins[1], INPUT);
+    delay(100); // Wait for sensor to boot
+    loadSensorBottom.setTimeout(500);
+    loadSensorBottom.init();
+    loadSensorBottom.setMeasurementTimingBudget(50000);
+    loadSensorBottom.setROISize(4, 4);
+    loadSensorBottom.startContinuous(100);
+    loadSensorBottom.setAddress(0x36);
   }
 }
 
@@ -91,7 +129,8 @@ void loop(){
 void commandTimeoutCheck()
 {
   // check for command timeout
-  if ((commandTimeout > 0 && (millis() - lastCommandTime >= commandTimeout))){
+  if ((commandTimeout > 0 && (millis() - lastCommandTime >= commandTimeout)) ||
+      (commandTimeout > 0 && tofDistancesReal[frontDirection] < 100)){
     halt();
     commandTimeout = 0;
   }
@@ -494,14 +533,19 @@ void pingLoadToF(int numTimes)
   }
   int calibration[2] = {0, 0};
 
-  for (int i=0; i<2; i++){
-    loadToFDistances[i] = loadSensors[i].readRangeContinuousMillimeters();
-    for (int j=1; j<numTimes; j++){
-      loadToFDistances[i] += loadSensors[i].readRangeContinuousMillimeters();
-    }
-    loadToFDistances[i] /= (numTimes);
-    loadToFDistances[i] -= calibration[i];
+  loadToFDistances[0] = loadSensorTop.readRangeContinuousMillimeters();
+  for (int j=1; j<numTimes; j++){
+    loadToFDistances[0] += loadSensorTop.readRangeContinuousMillimeters();
   }
+  loadToFDistances[0] /= (numTimes);
+  loadToFDistances[0] -= calibration[0];
+
+  loadToFDistances[1] = loadSensorBottom.readRangeContinuousMillimeters();
+  for (int j=1; j<numTimes; j++){
+    loadToFDistances[1] += loadSensorBottom.readRangeContinuousMillimeters();
+  }
+  loadToFDistances[1] /= (numTimes);
+  loadToFDistances[1] -= calibration[1];
 
   bool CAN_RESET_LOAD_TOF_ON_TIMEOUT = true;
   // Reset Load ToFs if any sensor times out (> 60000)
@@ -514,10 +558,6 @@ void pingLoadToF(int numTimes)
 }
 
 void changeFrontDirection(int newFront){
-  if (tofDistancesReal[newFront] < 100) {
-    Serial1.println("Cannot change front direction to " + String(newFront) + " due to obstacle.");
-    return;
-  }
   frontDirection = newFront % 4;
   if (verboseConsole) Serial1.println("Front direction changed to: " + String(frontDirection));
   pingToF();

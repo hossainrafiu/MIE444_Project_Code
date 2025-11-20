@@ -61,7 +61,8 @@ long lastToFDistances[4];
 long tofDistances[4]; // distances from ToF sensors
 long tofDistancesReal[4]; // Used for omniwheel drive where the 'front' is rotated
 
-VL53L0X loadSensors[2]; // Pin 6, 7
+VL53L0X loadSensorTop; // Pin 6
+VL53L1X loadSensorBottom; // Pin 7
 int loadToFPins[2] = {6, 7}; // XSHUT pins for the 2 Load ToF sensors
 long lastLoadToFDistances[2];
 long loadToFDistances[2]; // distances from Load ToF sensors
