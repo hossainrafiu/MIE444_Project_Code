@@ -54,6 +54,8 @@ void setup() {
   pinMode(LEDPin[1], OUTPUT);
   pinMode(LEDPin[2], OUTPUT);
   pinMode(LEDPin[3], OUTPUT);
+  
+  pinMode(switchPin, INPUT);
 
   // initialize servos (0 - base, 1 - gripper)
   servos[0].attach(servoPins[0]);
@@ -259,6 +261,10 @@ void controlFromSerial()
       Serial.println("Transmit Load TOF");
       transmitLoadToFData();
     }
+    else if (val == 'n'){
+      int switchState = digitalRead(switchPin);
+      Serial1.println("[" + String(switchState) + "]");
+    }
 
     // SPEED ADJUSTMENTS
     else if (val == 'z'){
@@ -288,8 +294,8 @@ void controlFromSerial()
 
     // RESET ARDUINO
     else if (val == 'b'){
-      pinMode(31, OUTPUT);
-      digitalWrite(31, HIGH);
+      pinMode(resetPin, OUTPUT);
+      digitalWrite(resetPin, HIGH);
     }
     else
     {
@@ -618,7 +624,7 @@ void pingLoadToF(int numTimes)
   bool CAN_RESET_LOAD_TOF_ON_TIMEOUT = true;
   // Reset Load ToFs if any sensor times out (> 60000)
   if (CAN_RESET_LOAD_TOF_ON_TIMEOUT){
-    if (loadToFDistances[0] > 60000 || loadToFDistances[1] > 60000){
+    if (loadToFDistances[0] > 60000 || loadToFDistances[1] == 0){
       Serial1.println("One or more Load ToF sensors timed out. Resetting sensors...");
       resetToF(true);
     }
