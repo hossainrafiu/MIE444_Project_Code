@@ -214,6 +214,18 @@ void controlFromSerial()
       changeFrontDirection(direction);
     }
 
+    // TRUE FORWARDS and BACKWARDS
+    else if (val == 'i'){
+      trueForward();
+      lastCommandTime = millis();
+      commandTimeout = commandDuration;
+    }
+    else if (val == 'k'){
+      trueBackwards();
+      lastCommandTime = millis();
+      commandTimeout = commandDuration;
+    }
+
     // PING TOF SENSORS
     else if (val == 'p')
     {
@@ -233,11 +245,14 @@ void controlFromSerial()
       halt();
     }
 
+    // SERVOS
     else if (val == 'l'){
       int servo = command.charAt(start + 2) - '0';
       int pwnPosition = command.substring(start+3,end).toInt();
       actuateServo(servo, pwnPosition);
     }
+
+    // LOAD SENSORS
     else if (val == 'v'){
       Serial.println("Ping Load TOF");
       pingLoadToF();
@@ -245,6 +260,7 @@ void controlFromSerial()
       transmitLoadToFData();
     }
 
+    // SPEED ADJUSTMENTS
     else if (val == 'z'){
       for (int i = 0; i<4 ; i++){
         speeds[i] += 10;
@@ -257,6 +273,20 @@ void controlFromSerial()
       }
       Serial1.println("Speeds decreased to: " + String(speeds[0]) + ", " + String(speeds[1]) + ", " + String(speeds[2]) + ", " + String(speeds[3]));
     }
+    else if (val == 'm'){
+      int motor = command.charAt(start + 2) - '0';
+      float newSpeed = command.substring(start+3,end).toFloat();
+      if (motor < 1 || motor > 4){
+        Serial1.println("Invalid motor index for 'm' command.");
+        return;
+      }
+      speeds[motor - 1] = newSpeed;
+    }
+    else if (val == 'c'){
+      Serial1.println("[" + String(speeds[0]) + ", " + String(speeds[1]) + ", " + String(speeds[2]) + ", " + String(speeds[3]) + "]");
+    }
+
+    // RESET ARDUINO
     else if (val == 'b'){
       pinMode(31, OUTPUT);
       digitalWrite(31, HIGH);
@@ -265,7 +295,7 @@ void controlFromSerial()
     {
       Serial1.println("Unknown command: " + String(val));
     }
-  if (val != 0 && val != 'p' && val != 'u' && val != 'v')
+  if (val != 0 && val != 'p' && val != 'u' && val != 'v' && val != 'c')
     {
       Serial1.println("[+]");
     }
@@ -281,6 +311,44 @@ void controlFromSerial()
 
 // Assuming:
 // In1:HIGH and In2:LOW -> CCW
+
+void trueForward(float speedDivisor)
+{
+  digitalWrite(In1A, HIGH); 
+  digitalWrite(In2A, LOW); 
+  analogWrite(EnM1A, speeds[0]);
+
+  digitalWrite(In3A, LOW); 
+  digitalWrite(In4A, HIGH); 
+  analogWrite(EnM2A, speeds[1]);
+
+  digitalWrite(In1B, HIGH); 
+  digitalWrite(In2B, LOW); 
+  analogWrite(EnM3B, speeds[2]);
+
+  digitalWrite(In3B, LOW); 
+  digitalWrite(In4B, HIGH); 
+  analogWrite(EnM4B, speeds[3]);
+}
+
+void trueBackwards(float speedDivisor)
+{
+  digitalWrite(In1A, LOW); 
+  digitalWrite(In2A, HIGH); 
+  analogWrite(EnM1A, speeds[0]);
+
+  digitalWrite(In3A, HIGH); 
+  digitalWrite(In4A, LOW); 
+  analogWrite(EnM2A, speeds[1]);
+
+  digitalWrite(In1B, LOW); 
+  digitalWrite(In2B, HIGH); 
+  analogWrite(EnM3B, speeds[2]);
+
+  digitalWrite(In3B, HIGH); 
+  digitalWrite(In4B, LOW); 
+  analogWrite(EnM4B, speeds[3]);
+}
 
 void forward(float speedDivisor)
 {

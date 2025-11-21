@@ -8,6 +8,8 @@ void resetToF(bool initializeLoadSensors);
 void additionalSetup();
 void commandTimeoutCheck();
 void controlFromSerial();
+void trueForward(float speedDivisor = 1.0);
+void trueBackwards(float speedDivisor = 1.0);
 void forward(float speedDivisor = 1.0);
 void backwards(float speedDivisor = 1.0);
 void left(float speedDivisor = 1.0);
