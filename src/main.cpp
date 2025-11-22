@@ -131,8 +131,7 @@ void loop(){
 void commandTimeoutCheck()
 {
   // check for command timeout
-  if ((commandTimeout > 0 && (millis() - lastCommandTime >= commandTimeout)) ||
-      (commandTimeout > 0 && tofDistancesReal[frontDirection] < 100)){
+  if ((commandTimeout > 0 && (millis() - lastCommandTime >= commandTimeout))){
     halt();
     commandTimeout = 0;
   }
