@@ -587,6 +587,7 @@ void pingToF(int numTimes)
     if (tofDistancesReal[0] > 60000 || tofDistancesReal[1] > 60000 || tofDistancesReal[2] > 60000 || tofDistancesReal[3] > 60000){
       Serial1.println("One or more ToF sensors timed out. Resetting sensors...");
       resetToF(false);
+      loadSensorsInitialized = false;
     }
   }
 
