@@ -300,7 +300,7 @@ void controlFromSerial()
     {
       Serial1.println("Unknown command: " + String(val));
     }
-  if (val != 0 && val != 'p' && val != 'u' && val != 'v' && val != 'c')
+  if (val != 0 && val != 'p' && val != 'u' && val != 'v' && val != 'c' && val != 'n')
     {
       Serial1.println("[+]");
     }
