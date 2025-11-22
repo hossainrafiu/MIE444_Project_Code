@@ -70,7 +70,7 @@ long lastLoadToFDistances[2];
 long loadToFDistances[2]; // distances from Load ToF sensors
 bool loadSensorsInitialized = false;
 
-int switchPin = 33; // Digital Input pin for Load Detection Switch
+int switchPin = 52; // Digital Input pin for Load Detection Switch
 int resetPin = 31;  // Digital Input pin for Reset Switch
 
 Servo servos[2];
