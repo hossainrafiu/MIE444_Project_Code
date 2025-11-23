@@ -51,7 +51,7 @@ int In4B=45; //Digital
 int EnM4B=10; //PWM
 
 // int speeds[12]={93,86,77,75,159,154,150,153,225,225,225,225};
-float speeds[4]={75.0,50.0,55.0,70.0};
+float speeds[4]={85.0,60.0,75.0,75.0};
 
 // Sensors orientation:
 //     [0]
